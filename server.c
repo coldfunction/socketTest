@@ -35,33 +35,57 @@ int main(int argc , char *argv[])
 
     serverInfo.sin_family = PF_INET;
     serverInfo.sin_addr.s_addr = inet_addr("172.31.3.2");
-    serverInfo.sin_port = htons(8700);
+    serverInfo.sin_port = htons(8701);
     bind(sockfd,(struct sockaddr *)&serverInfo,sizeof(serverInfo));
     listen(sockfd,5);
 
-	int total = TOTAL_DATA_SIZE;
+	//int total = TOTAL_DATA_SIZE;
     while(1){
         forClientSockfd = accept(sockfd,(struct sockaddr*) &clientInfo, &addrlen);
 
-		int ret, offset = 0;
-		while ( ret = recv(forClientSockfd,inputBuffer+offset,len,0) ) {
-			offset += ret;
-			len = len - ret;
+		int num;
+		FILE * file;
+		file = fopen( "inputData.txt" , "r");
+		if(!file){
+			free(inputBuffer);
+			close(sockfd);
+			return 0;
+		}
+		while (fscanf(file, "%d", &num)!=EOF) {
+			if(num == 0)
+				num = 1;
+
+			int total = num;
+			len = TOTAL_LEN;
+
+			if(total < TOTAL_LEN) {
+				len = total;
+			}
+
+
+//			printf("cocotion  test total = %d\n", total);
+			int ret, offset = 0;
+			while ( ret = recv(forClientSockfd,inputBuffer+offset,len,0) ) {
+				offset += ret;
+				len = len - ret;
 //			printf("cocotion recv len = %d\n", ret);
-			if(len == 0) {
-				total-=offset;
-				printf("cocotion test rest recv = %d\n", total);
-				if(total == 0)
-					break;
-				else {
-					offset = 0;
-					len = TOTAL_LEN;
+				if(len == 0) {
+					total-=offset;
+					//printf("cocotion test rest recv = %d\n", total);
+					if(total == 0)
+						break;
+					else {
+						offset = 0;
+						len = TOTAL_LEN;
+						if(total < TOTAL_LEN) {
+							len = total;
+						}
+					}
 				}
 			}
-		}
-		printf("cocotion test ok I recv all\n");
+			//printf("cocotion test ok I recv all\n");
 
-		int i;
+//			int i;
 		//for(i = 0; i < TOTAL_LEN; i++) {
 		//	if(inputBuffer[i] != '@' ) break;
 		//}
@@ -69,8 +93,12 @@ int main(int argc , char *argv[])
 		//	printf("i = %d\n", i);
 		//	message[0] = '@';
 		//}
-        send(forClientSockfd,message,sizeof(message),0);
+		//usleep(100);
+        	send(forClientSockfd,message,sizeof(message),0);
 //        printf("Get:%s\n",inputBuffer);
-    }
+    	}
+	}
+	free(inputBuffer);
+	close(sockfd);
     return 0;
 }

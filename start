@@ -1,0 +1,10 @@
+#!/bin/sh
+
+gcc -o server server.c
+gcc -o client client.c
+sleep 1
+
+sshpass -p mypasswd ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; killall server; gnome-terminal -x bash -c './server' " &
+
+sleep 1
+./client

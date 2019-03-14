@@ -14,6 +14,7 @@
 int main(int argc , char *argv[])
 
 {
+	int port_num = atoi(argv[1]);
     //socket build
 //    char inputBuffer[256] = {};
 	char *inputBuffer;
@@ -35,20 +36,22 @@ int main(int argc , char *argv[])
 
     serverInfo.sin_family = PF_INET;
     serverInfo.sin_addr.s_addr = inet_addr("172.31.3.2");
-    serverInfo.sin_port = htons(8701);
+    serverInfo.sin_port = htons(port_num);
     bind(sockfd,(struct sockaddr *)&serverInfo,sizeof(serverInfo));
     listen(sockfd,5);
 
 	//int total = TOTAL_DATA_SIZE;
+	FILE * file;
     while(1){
         forClientSockfd = accept(sockfd,(struct sockaddr*) &clientInfo, &addrlen);
 
 		int num;
-		FILE * file;
+		//FILE * file;
 		file = fopen( "inputData.txt" , "r");
 		if(!file){
 			free(inputBuffer);
 			close(sockfd);
+			fclose(file);
 			return 0;
 		}
 		while (fscanf(file, "%d", &num)!=EOF) {
@@ -57,6 +60,9 @@ int main(int argc , char *argv[])
 
 			int total = num;
 			len = TOTAL_LEN;
+
+			printf("this time len is num = %d\n", num);
+
 
 			if(total < TOTAL_LEN) {
 				len = total;
@@ -68,10 +74,10 @@ int main(int argc , char *argv[])
 			while ( ret = recv(forClientSockfd,inputBuffer+offset,len,0) ) {
 				offset += ret;
 				len = len - ret;
-//			printf("cocotion recv len = %d\n", ret);
+			printf("cocotion recv len = %d\n", ret);
 				if(len == 0) {
 					total-=offset;
-					//printf("cocotion test rest recv = %d\n", total);
+					printf("cocotion test rest recv = %d\n", total);
 					if(total == 0)
 						break;
 					else {
@@ -83,7 +89,7 @@ int main(int argc , char *argv[])
 					}
 				}
 			}
-			//printf("cocotion test ok I recv all\n");
+			printf("cocotion test ok I recv all\n");
 
 //			int i;
 		//for(i = 0; i < TOTAL_LEN; i++) {

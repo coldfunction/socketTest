@@ -4,7 +4,7 @@ gcc -o server server.c
 gcc -o client client.c
 sleep 1
 
-sshpass -p pwd ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; killall server; gnome-terminal -x bash -c './server' " &
+sshpass -p xxxx ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; killall server; gnome-terminal -x bash -c './server 5566; read' " &
 
 sleep 1
-./client
+./client 5566

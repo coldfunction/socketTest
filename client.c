@@ -17,6 +17,8 @@
 static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
+static pthread_mutex_t mtx2 = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t cond2 = PTHREAD_COND_INITIALIZER;
 
 
 struct sendBuf
@@ -25,8 +27,12 @@ struct sendBuf
 	int tail;
 	int bottom;
 	int sockfd;
+	int sockfd2;
 	int kick;
+	int stop_send_garbage;
+
 	char *buf;
+
 };
 
 struct sendBuf *sbuf;
@@ -73,6 +79,53 @@ int socket_connect(char *ip, int port_num)
 }
 
 
+void *garbage_send_func(void *data)
+{
+	//int sockfd = *(int*)data;
+	struct sendBuf *tbuf = (struct sendBuf*)data;
+	int sockfd = tbuf->sockfd2;
+
+//	char buf[] = {"g"};
+	int buf_size = 65536;
+//	int buf_size = 4;
+	char *buf = malloc(buf_size);
+    bzero(buf,buf_size);
+
+	while(1) {
+
+		do {
+			pthread_mutex_lock(&mtx2);
+			pthread_cond_wait(&cond2, &mtx2);
+			pthread_mutex_unlock(&mtx2);
+		} while (tbuf->stop_send_garbage);
+
+		int len = buf_size;
+		int offset = 0;
+		do {
+			int ret = send(sockfd,buf + offset, len,0);
+//			printf("start already send garbage len = %d\n", len);
+			offset += ret;
+	    	len = len - ret;
+		} while (len);
+
+	}
+
+	printf("send okokokokokokok garbage_send_func\n");
+
+}
+
+void send_garbage()
+{
+	pthread_mutex_lock(&mtx2);
+	sbuf->stop_send_garbage = 0;
+	pthread_cond_signal(&cond2);
+	pthread_mutex_unlock(&mtx2);
+}
+
+void stop_send_garbage()
+{
+	sbuf->stop_send_garbage = 1;
+}
 
 void *trans_func(void *data)
 {
@@ -91,8 +144,8 @@ void *trans_func(void *data)
 
 		while (tbuf->head == tbuf->tail) {
 			if(tbuf->bottom) break;
-
-	//		send_garbage();
+			send_garbage();
+//			printf("after send garbage command stop garbage = %d\n", tbuf->stop_send_garbage);
 			pthread_cond_wait(&cond, &mtx);
 		}
 	//	stop_send_garbage();
@@ -116,6 +169,7 @@ void *trans_func(void *data)
 		int total_times = num/TOTAL_LEN;
 		int i;
 
+		stop_send_garbage();
 
 		for(i = 0; i < total_times; i++) {
 			offset = 0;
@@ -173,6 +227,13 @@ int main(int argc , char *argv[])
 
 
 	int sockfd = socket_connect("172.31.3.2", port_num);
+	int sockfd2 = socket_connect("172.31.3.2", port_num+1);
+
+	sbuf->sockfd2 = sockfd2;
+	sbuf->stop_send_garbage = 1;
+
+	pthread_t gthread;
+	pthread_create(&gthread, NULL, garbage_send_func, sbuf);
 
 
     //Send a message to server
@@ -364,10 +425,14 @@ int main(int argc , char *argv[])
 	pthread_cancel(trans_thread);
 	pthread_join(trans_thread, NULL);
 
+	pthread_cancel(gthread);
+	pthread_join(gthread, NULL);
+
     printf("close Socket\n");
 	free(buf);
 	free(sbuf);
 	close(sockfd);
+	close(sockfd2);
 	fclose(file);
 	fclose(file2);
     return 0;

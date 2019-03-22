@@ -6,10 +6,53 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 
 #define TOTAL_LEN (64*1024)
 #define TOTAL_DATA_SIZE (4*1024*1024)
+
+
+void *garbage_recv_func(void *data)
+{
+	int port_num = *(int*)data;
+	port_num+=1;
+
+	int buf_size = 65536;
+//	int buf_size = 4;
+//	char buf[10];
+	char *buf = malloc(buf_size);
+
+    int sockfd = 0,forClientSockfd = 0;
+	sockfd = socket(AF_INET , SOCK_STREAM , 0);
+
+    if (sockfd == -1){
+        printf("Fail to create a socket.");
+    }
+
+	//socket connect
+    struct sockaddr_in serverInfo,clientInfo;
+    int addrlen = sizeof(clientInfo);
+    bzero(&serverInfo,sizeof(serverInfo));
+
+    serverInfo.sin_family = PF_INET;
+    serverInfo.sin_addr.s_addr = inet_addr("172.31.3.2");
+    serverInfo.sin_port = htons(port_num);
+    bind(sockfd,(struct sockaddr *)&serverInfo,sizeof(serverInfo));
+    listen(sockfd,5);
+    while(1){
+        forClientSockfd = accept(sockfd,(struct sockaddr*) &clientInfo, &addrlen);
+		int ret, offset = 0;
+		int len = buf_size;
+		while ( ret = recv(forClientSockfd,buf+offset,len,0) ) {
+			offset += ret;
+			len = len-ret;
+			//printf("@@@@@@@@@@@@@@@!!!!!!!!!!!@@@@@@@@@@cocotion recv len = %d\n", ret);
+		}
+	}
+}
+
+
 
 int main(int argc , char *argv[])
 
@@ -22,8 +65,16 @@ int main(int argc , char *argv[])
 	inputBuffer = malloc(len);
 
     char message[] = {"Hi,this is server okokokok.\n"};
+
+
+	pthread_t gthread;
+	pthread_create(&gthread, NULL, garbage_recv_func, &port_num);
+
+
+
+
     int sockfd = 0,forClientSockfd = 0;
-    sockfd = socket(AF_INET , SOCK_STREAM , 0);
+	sockfd = socket(AF_INET , SOCK_STREAM , 0);
 
     if (sockfd == -1){
         printf("Fail to create a socket.");
@@ -39,6 +90,9 @@ int main(int argc , char *argv[])
     serverInfo.sin_port = htons(port_num);
     bind(sockfd,(struct sockaddr *)&serverInfo,sizeof(serverInfo));
     listen(sockfd,5);
+
+
+
 
 	//int total = TOTAL_DATA_SIZE;
 	FILE * file;
@@ -104,6 +158,10 @@ int main(int argc , char *argv[])
 //        printf("Get:%s\n",inputBuffer);
     	}
 	}
+
+	pthread_cancel(gthread);
+	pthread_join(gthread, NULL);
+
 	free(inputBuffer);
 	close(sockfd);
     return 0;

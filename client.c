@@ -31,14 +31,6 @@ struct sendBuf
 
 struct sendBuf *sbuf;
 
-void give_value(char *buf, int len)
-{
-	int i = 0;
-	for(i = 0; i < len; i++)
-		buf[i] = '#';
-}
-
-
 void *trans_func(void *data)
 {
 	struct sendBuf *tbuf = (struct sendBuf*)data;
@@ -230,9 +222,9 @@ int main(int argc , char *argv[])
 
 
 		for(i = 0; i < total_times; i++) {
-//
+
 			offset = 0;
-/*
+
 			if(rand()%2 == 0) {}
 			else if(rand()%3 == 0) {
 				usleep(10);
@@ -252,7 +244,7 @@ int main(int argc , char *argv[])
 			else {
 				usleep(rand()%200);
 			}
-*/
+
 
 			int start = sbuf->tail;
 

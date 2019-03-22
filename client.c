@@ -31,6 +31,49 @@ struct sendBuf
 
 struct sendBuf *sbuf;
 
+/*
+void send_garbage()
+{
+	pthread_t gthread;
+	pthread_create(&gthread, NULL, trans_g_func, NULL);
+
+}
+
+void stop_send_garbage()
+{
+
+
+}
+*/
+
+int socket_connect(char *ip, int port_num)
+{
+    int sockfd = 0;
+    sockfd = socket(AF_INET , SOCK_STREAM , 0);
+
+    if (sockfd == -1){
+        printf("Fail to create a socket.");
+    }
+
+    //socket connect
+
+    struct sockaddr_in info;
+    bzero(&info,sizeof(info));
+    info.sin_family = PF_INET;
+
+    info.sin_addr.s_addr = inet_addr(ip);
+    info.sin_port = htons(port_num);
+
+
+    int err = connect(sockfd,(struct sockaddr *)&info,sizeof(info));
+    if(err==-1){
+        printf("Connection error");
+    }
+	return sockfd;
+}
+
+
+
 void *trans_func(void *data)
 {
 	struct sendBuf *tbuf = (struct sendBuf*)data;
@@ -48,8 +91,12 @@ void *trans_func(void *data)
 
 		while (tbuf->head == tbuf->tail) {
 			if(tbuf->bottom) break;
+
+	//		send_garbage();
 			pthread_cond_wait(&cond, &mtx);
 		}
+	//	stop_send_garbage();
+
 
 		head = tbuf->head;
 		tail = tbuf->tail;
@@ -125,35 +172,13 @@ int main(int argc , char *argv[])
 	sbuf->head = sbuf->tail = sbuf->kick = sbuf->bottom = 0;
 
 
-	//socket build
-    int sockfd = 0;
-	int len = TOTAL_LEN;
-    sockfd = socket(AF_INET , SOCK_STREAM , 0);
-
-    if (sockfd == -1){
-        printf("Fail to create a socket.");
-    }
-
-    //socket connect
-
-    struct sockaddr_in info;
-    bzero(&info,sizeof(info));
-    info.sin_family = PF_INET;
-
-    //localhost test
-    info.sin_addr.s_addr = inet_addr("172.31.3.2");
-    info.sin_port = htons(port_num);
-
-
-    int err = connect(sockfd,(struct sockaddr *)&info,sizeof(info));
-    if(err==-1){
-        printf("Connection error");
-    }
+	int sockfd = socket_connect("172.31.3.2", port_num);
 
 
     //Send a message to server
 	//
 
+	int len = TOTAL_LEN;
 	char *buf;
 	//buf = malloc(len);
 	buf = sbuf->buf;

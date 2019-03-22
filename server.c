@@ -61,7 +61,7 @@ int main(int argc , char *argv[])
 			int total = num;
 			len = TOTAL_LEN;
 
-			printf("this time len is num = %d\n", num);
+			printf("this time len is num = %d ########################\n", num);
 
 
 			if(total < TOTAL_LEN) {

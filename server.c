@@ -18,8 +18,9 @@ void *garbage_recv_func(void *data)
 	int port_num = *(int*)data;
 	port_num+=1;
 
-	int buf_size = 65536;
+//	int buf_size = 65536;
 //	int buf_size = 4;
+	int buf_size = 131072;
 //	char buf[10];
 	char *buf = malloc(buf_size);
 

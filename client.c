@@ -34,6 +34,11 @@ static pthread_cond_t cond2[2];
 //mtx2[1] = PTHREAD_MUTEX_INITIALIZER;
 //cond2[1] = PTHREAD_COND_INITIALIZER;
 
+static pthread_mutex_t mtx3;
+static pthread_cond_t cond3;
+
+
+int kick_trans = 0;
 
 
 struct sendBuf
@@ -159,6 +164,7 @@ void *trans_func(void *data)
 	CPU_SET(cpu, &cpuset);
 	sched_setaffinity(0, sizeof(cpuset), &cpuset);
 
+	unsigned int sel = op;
 
 
 	int sockfd = tbuf->sockfd;
@@ -204,7 +210,18 @@ void *trans_func(void *data)
 			offset = 0;
 
 			do {
+				sel++;
+				pthread_mutex_lock(&mtx3);
+				if(sel%2 == 0 && !kick_trans) {
+					kick_trans = 1;
+					printf("wait op = %d\n", op);
+					pthread_cond_wait(&cond3, &mtx3);
+				}
+				printf("send op = %d\n", op);
+				kick_trans = 0;
 	    		int ret = send(sockfd,buf + offset + head, len,0);
+				pthread_cond_signal(&cond3);
+				pthread_mutex_unlock(&mtx3);
 				offset += ret;
 	    		len = len - ret;
 			}while (len);
@@ -219,7 +236,19 @@ void *trans_func(void *data)
 
 		if(rest) {
 			do {
+				sel++;
+				pthread_mutex_lock(&mtx3);
+				if(sel%2 == 0 && !kick_trans) {
+					kick_trans = 1;
+					pthread_cond_wait(&cond3, &mtx3);
+				}
+
+
+
+				kick_trans = 0;
 	    		int ret = send(sockfd,buf + offset + head, rest,0);
+				pthread_cond_signal(&cond3);
+				pthread_mutex_unlock(&mtx3);
 				offset += ret;
 	    		rest = rest - ret;
 			}while (rest);
@@ -235,6 +264,7 @@ void *trans_func(void *data)
 			tbuf->head = 0;
 		}
 		pthread_cond_signal(&cond[op]);
+		pthread_cond_signal(&cond3);
 		pthread_mutex_unlock(&mtx[op]);
 	}
 }
@@ -488,6 +518,8 @@ int main(int argc , char *argv[])
 	pthread_mutex_init(&mtx2[1], NULL);
 	pthread_cond_init(&cond2[1], NULL);
 
+	pthread_mutex_init(&mtx3, NULL);
+	pthread_cond_init(&cond3, NULL);
 
 
 

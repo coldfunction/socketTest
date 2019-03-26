@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +10,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <pthread.h>
+#include <sched.h>
 
 
 #define TOTAL_LEN (64*1024)
@@ -103,9 +105,9 @@ void *garbage_send_func(void *data)
 	int op = tbuf->op;
 
 //	char buf[] = {"g"};
-//	int buf_size = 65536;
+	int buf_size = 65536;
 //	int buf_size = 4;
-	int buf_size = 131072;
+//	int buf_size = 131072;
 	char *buf = malloc(buf_size);
     bzero(buf,buf_size);
 
@@ -148,6 +150,16 @@ void stop_send_garbage(int op)
 void *trans_func(void *data)
 {
 	struct sendBuf *tbuf = (struct sendBuf*)data;
+	int op = tbuf->op;
+
+	cpu_set_t cpuset;
+//	int cpu = op%2;
+	int cpu = 7;
+	CPU_ZERO(&cpuset);
+	CPU_SET(cpu, &cpuset);
+	sched_setaffinity(0, sizeof(cpuset), &cpuset);
+
+
 
 	int sockfd = tbuf->sockfd;
 	char *buf  = tbuf->buf;
@@ -156,7 +168,6 @@ void *trans_func(void *data)
 	int bottom = 0;
 	static int clear_rest = 0;
 
-	int op = tbuf->op;
 
 
 	while(1) {
@@ -164,7 +175,7 @@ void *trans_func(void *data)
 
 		while (tbuf->head == tbuf->tail) {
 			if(tbuf->bottom) break;
-	//		send_garbage();
+		//	send_garbage(op);
 //			printf("after send garbage command stop garbage = %d\n", tbuf->stop_send_garbage);
 			pthread_cond_wait(&cond[op], &mtx[op]);
 		}
@@ -187,7 +198,7 @@ void *trans_func(void *data)
 		int total_times = num/TOTAL_LEN;
 		int i;
 
-	//	stop_send_garbage();
+		//stop_send_garbage(op);
 
 		for(i = 0; i < total_times; i++) {
 			offset = 0;
@@ -294,8 +305,19 @@ void *func(void *data)
 
 	sbuf[op]->sockfd = sockfd;
 
+
+	pthread_attr_t tattr;
+	int policy;
+	int ret;
+
+	pthread_attr_init(&tattr);
+
+	ret = pthread_attr_setschedpolicy(&tattr, SCHED_RR);
+
+
 	pthread_t trans_thread;
-	pthread_create(&trans_thread, NULL, trans_func, sbuf[op]);
+	pthread_create(&trans_thread, &tattr, trans_func, sbuf[op]);
+//	pthread_create(&trans_thread, NULL, trans_func, sbuf[op]);
 
 	int k = 0;
 	while (fscanf(file, "%d", &num)!=EOF) {

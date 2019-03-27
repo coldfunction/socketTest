@@ -154,18 +154,18 @@ void stop_send_garbage(int op)
 
 void *trans_func(void *data)
 {
-	struct sendBuf *tbuf = (struct sendBuf*)data;
-	int op = tbuf->op;
+//	struct sendBuf *tbuf = (struct sendBuf*)data;
+//	int op = tbuf->op;
 
-	cpu_set_t cpuset;
+//	cpu_set_t cpuset;
 //	int cpu = op%2;
-	int cpu = 7;
-	CPU_ZERO(&cpuset);
-	CPU_SET(cpu, &cpuset);
-	sched_setaffinity(0, sizeof(cpuset), &cpuset);
+//	int cpu = 7;
+//	CPU_ZERO(&cpuset);
+//	CPU_SET(cpu, &cpuset);
+//	sched_setaffinity(0, sizeof(cpuset), &cpuset);
 
-	unsigned int sel = op;
-
+//	unsigned int sel = op;
+/*
 
 	int sockfd = tbuf->sockfd;
 	char *buf  = tbuf->buf;
@@ -173,55 +173,83 @@ void *trans_func(void *data)
 	int len = TOTAL_LEN;
 	int bottom = 0;
 	static int clear_rest = 0;
-
-
-
+*/
+	int op = 0;
 	while(1) {
+		op = (op+1)%2;
+
+		//printf("op = %d\n", op);
+
+		char *buf  = sbuf[op]->buf;
+		int sockfd = sbuf[op]->sockfd;
+		int head, tail = 0;
+		int len = TOTAL_LEN;
+		int bottom = 0;
+
 		pthread_mutex_lock(&mtx[op]);
 
-		while (tbuf->head == tbuf->tail) {
-			if(tbuf->bottom) break;
-		//	send_garbage(op);
+		while (sbuf[op]->head == sbuf[op]->tail) {
+			if(sbuf[op]->bottom) break;
+
+			send_garbage(op);
 //			printf("after send garbage command stop garbage = %d\n", tbuf->stop_send_garbage);
+//			printf("wait op = %d, head = %d, tail = %d\n", op, sbuf[op]->head, sbuf[op]->tail);
+//
 			pthread_cond_wait(&cond[op], &mtx[op]);
 		}
 
-		head = tbuf->head;
-		tail = tbuf->tail;
-		bottom = tbuf->bottom;
+		head = sbuf[op]->head;
+		tail = sbuf[op]->tail;
+		bottom = sbuf[op]->bottom;
 
 		int update_head = 0;
+
+
 		if(bottom) {
 			tail = bottom;
 			update_head = 1;
+//			printf("op = %d, bottom = %d\n", op, bottom);
 		}
 
 		pthread_mutex_unlock(&mtx[op]);
 
 		int offset = 0;
 
-		int num = tail-head;
+		int num = ((tail-head) >= 65536) ? TOTAL_LEN : (tail-head);
 		int total_times = num/TOTAL_LEN;
 		int i;
-
-		//stop_send_garbage(op);
+/*
+		if(tail == head) {
+			pthread_mutex_lock(&mtx[op]);
+			if(update_head) {
+				sbuf[op]->bottom = 0;
+				sbuf[op]->head = 0;
+			}
+			pthread_cond_signal(&cond[op]);
+//			pthread_cond_signal(&cond3);
+			pthread_mutex_unlock(&mtx[op]);
+			//dododo
+		}
+*/
+		stop_send_garbage(op);
 
 		for(i = 0; i < total_times; i++) {
 			offset = 0;
 
 			do {
-				sel++;
-				pthread_mutex_lock(&mtx3);
-				if(sel%2 == 0 && !kick_trans) {
-					kick_trans = 1;
-					printf("wait op = %d\n", op);
-					pthread_cond_wait(&cond3, &mtx3);
-				}
-				printf("send op = %d\n", op);
-				kick_trans = 0;
+//				sel++;
+//				pthread_mutex_lock(&mtx3);
+//				if(sel%2 == 0 && !kick_trans) {
+//					kick_trans = 1;
+//					printf("wait op = %d\n", op);
+//					pthread_cond_wait(&cond3, &mtx3);
+//				}
+//				printf("send op = %d\n", op);
+//				kick_trans = 0;
 	    		int ret = send(sockfd,buf + offset + head, len,0);
-				pthread_cond_signal(&cond3);
-				pthread_mutex_unlock(&mtx3);
+//				printf("send op = %d\n", op);
+//				pthread_cond_signal(&cond3);
+//				pthread_mutex_unlock(&mtx3);
 				offset += ret;
 	    		len = len - ret;
 			}while (len);
@@ -236,19 +264,20 @@ void *trans_func(void *data)
 
 		if(rest) {
 			do {
-				sel++;
-				pthread_mutex_lock(&mtx3);
-				if(sel%2 == 0 && !kick_trans) {
-					kick_trans = 1;
-					pthread_cond_wait(&cond3, &mtx3);
-				}
+//				sel++;
+//				pthread_mutex_lock(&mtx3);
+//				if(sel%2 == 0 && !kick_trans) {
+//					kick_trans = 1;
+//					pthread_cond_wait(&cond3, &mtx3);
+//				}
 
 
 
-				kick_trans = 0;
+//				kick_trans = 0;
 	    		int ret = send(sockfd,buf + offset + head, rest,0);
-				pthread_cond_signal(&cond3);
-				pthread_mutex_unlock(&mtx3);
+//				printf("send op rest= %d\n", op);
+//				pthread_cond_signal(&cond3);
+//				pthread_mutex_unlock(&mtx3);
 				offset += ret;
 	    		rest = rest - ret;
 			}while (rest);
@@ -256,16 +285,34 @@ void *trans_func(void *data)
 			head+=offset;
 		}
 
-		tbuf->head = head;
+		sbuf[op]->head = head;
 
+//		printf("~~~~op = %d, head= %d, tail = %d\n", op, head, sbuf[op]->tail);
+/*
 		pthread_mutex_lock(&mtx[op]);
 		if(update_head) {
-			tbuf->bottom = 0;
-			tbuf->head = 0;
+			sbuf[op]->bottom = 0;
+			sbuf[op]->head = 0;
 		}
 		pthread_cond_signal(&cond[op]);
 		pthread_cond_signal(&cond3);
 		pthread_mutex_unlock(&mtx[op]);
+		*/
+
+		if(tail == head) {
+			pthread_mutex_lock(&mtx[op]);
+			if(update_head) {
+				sbuf[op]->bottom = 0;
+				sbuf[op]->head = 0;
+			}
+			pthread_cond_signal(&cond[op]);
+//			pthread_cond_signal(&cond3);
+			pthread_mutex_unlock(&mtx[op]);
+			//dododo
+		}
+
+
+
 	}
 }
 
@@ -336,18 +383,23 @@ void *func(void *data)
 	sbuf[op]->sockfd = sockfd;
 
 
-	pthread_attr_t tattr;
-	int policy;
-	int ret;
-
-	pthread_attr_init(&tattr);
-
-	ret = pthread_attr_setschedpolicy(&tattr, SCHED_RR);
-
-
 	pthread_t trans_thread;
-	pthread_create(&trans_thread, &tattr, trans_func, sbuf[op]);
-//	pthread_create(&trans_thread, NULL, trans_func, sbuf[op]);
+	if(op == 0) {
+
+		pthread_attr_t tattr;
+		int policy;
+		int ret;
+
+		pthread_attr_init(&tattr);
+
+		ret = pthread_attr_setschedpolicy(&tattr, SCHED_RR);
+
+
+	//	pthread_t trans_thread;
+//	pthread_create(&trans_thread, &tattr, trans_func, sbuf[op]);
+		pthread_create(&trans_thread, NULL, trans_func, sbuf[op]);
+
+	}
 
 	int k = 0;
 	while (fscanf(file, "%d", &num)!=EOF) {
@@ -401,6 +453,7 @@ void *func(void *data)
 			pthread_mutex_lock(&mtx[op]);
 			if(start < sbuf[op]->head) {
 				while(start+len > sbuf[op]->head) {
+//					printf("@@@@@@@@@@@@@ wait op = %d\n", op);
 					pthread_cond_wait(&cond[op], &mtx[op]);
 					break;
 				}
@@ -419,6 +472,7 @@ void *func(void *data)
 			else
 				sbuf[op]->tail = start;
 
+//			printf("@@@@@@@@@@@@@ op = %d, tail = %d, head = %d\n", op, sbuf[op]->tail, sbuf[op]->head);
 			pthread_cond_signal(&cond[op]);
 			pthread_mutex_unlock(&mtx[op]);
 		}
@@ -434,6 +488,7 @@ void *func(void *data)
 			pthread_mutex_lock(&mtx[op]);
 			if(start < sbuf[op]->head) {
 				while(start+rest > sbuf[op]->head) {
+//					printf("@@@@@@@@@@@@@@ wait op = %d\n", op);
 					pthread_cond_wait(&cond[op], &mtx[op]);
 					break;
 				}
@@ -450,10 +505,18 @@ void *func(void *data)
 			else
 				sbuf[op]->tail = start;
 
+//			printf("@@@@@@@@@@@@@ rest op = %d, tail = %d, head = %d\n", op, sbuf[op]->tail, sbuf[op]->head);
 			pthread_cond_signal(&cond[op]);
 			pthread_mutex_unlock(&mtx[op]);
 
 		}
+//		printf("okok I recv now\n");
+/*
+		pthread_mutex_lock(&mtx[op]);
+		kick_trans = 1;
+		pthread_cond_signal(&cond[op]);
+		pthread_mutex_unlock(&mtx[op]);
+*/
 		recv(sockfd,receiveMessage,sizeof(receiveMessage),0);
 
 		gettimeofday(&end,NULL);
@@ -485,8 +548,10 @@ void *func(void *data)
 		}
 	}
 
-	pthread_cancel(trans_thread);
-	pthread_join(trans_thread, NULL);
+	if(op == 0) {
+		pthread_cancel(trans_thread);
+		pthread_join(trans_thread, NULL);
+	}
 
 	pthread_cancel(gthread);
 	pthread_join(gthread, NULL);

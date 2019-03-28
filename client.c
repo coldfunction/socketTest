@@ -41,6 +41,11 @@ static pthread_cond_t cond3;
 int kick_trans = 0;
 
 
+struct  timeval  start2;
+struct  timeval  end2;
+
+
+
 struct sendBuf
 {
 	int head;
@@ -110,8 +115,8 @@ void *garbage_send_func(void *data)
 	int op = tbuf->op;
 
 //	char buf[] = {"g"};
-	int buf_size = 65536;
-//	int buf_size = 4;
+//	int buf_size = 65536;
+	int buf_size = 4;
 //	int buf_size = 131072;
 	char *buf = malloc(buf_size);
     bzero(buf,buf_size);
@@ -191,13 +196,51 @@ void *trans_func(void *data)
 		while (sbuf[op]->head == sbuf[op]->tail) {
 			if(sbuf[op]->bottom) break;
 
-			send_garbage(op);
+//			send_garbage(op);
 //			printf("after send garbage command stop garbage = %d\n", tbuf->stop_send_garbage);
-//			printf("wait op = %d, head = %d, tail = %d\n", op, sbuf[op]->head, sbuf[op]->tail);
+
+//cocotion fucking
+/*
+			if(op == 0) {
+			gettimeofday(&end2,NULL);
+			unsigned int timer = 1000000 * (end2.tv_sec-start2.tv_sec)+ end2.tv_usec-start2.tv_usec;
+
+			printf("wait op = %d, head = %d, tail = %d, time = %d\n", op, sbuf[op]->head, sbuf[op]->tail, timer);
+			}
+*/
+
+
+			//			pthread_mutex_unlock(&mtx[op]);
+//			goto again;
 //
+//
+/*
+			pthread_mutex_lock(&mtx[(op+1)%2]);
+			if((sbuf[(op+1)%2]->head != sbuf[(op+1)%2]->tail) || sbuf[(op+1)%2]->bottom) {
+				pthread_mutex_unlock(&mtx[op]);
+
+				op = (op+1)%2;
+				//pthread_mutex_lock(&mtx[op]);
+				sockfd = sbuf[op]->sockfd;
+
+				break;
+			}
+			pthread_mutex_unlock(&mtx[(op+1)%2]);
+*/
 			pthread_cond_wait(&cond[op], &mtx[op]);
 		}
 
+//cocotion fucking
+/*
+		if(op == 0){
+			gettimeofday(&end2,NULL);
+			unsigned int timer = 1000000 * (end2.tv_sec-start2.tv_sec)+ end2.tv_usec-start2.tv_usec;
+			if(timer > 8000) {
+
+				printf("wait wait wait time = %d, head = %d, tail = %d\n", timer, sbuf[op]->head, sbuf[op]->tail);
+			}
+		}
+*/
 		head = sbuf[op]->head;
 		tail = sbuf[op]->tail;
 		bottom = sbuf[op]->bottom;
@@ -231,7 +274,7 @@ void *trans_func(void *data)
 			//dododo
 		}
 */
-		stop_send_garbage(op);
+//		stop_send_garbage(op);
 
 		for(i = 0; i < total_times; i++) {
 			offset = 0;
@@ -285,7 +328,9 @@ void *trans_func(void *data)
 			head+=offset;
 		}
 
+		pthread_mutex_lock(&mtx[op]);
 		sbuf[op]->head = head;
+		pthread_mutex_unlock(&mtx[op]);
 
 //		printf("~~~~op = %d, head= %d, tail = %d\n", op, head, sbuf[op]->tail);
 /*
@@ -311,7 +356,16 @@ void *trans_func(void *data)
 			//dododo
 		}
 
+//cocotion fucking
+/*
 
+			if(op == 0) {
+			gettimeofday(&end2,NULL);
+			unsigned int timer = 1000000 * (end2.tv_sec-start2.tv_sec)+ end2.tv_usec-start2.tv_usec;
+
+			printf("want go next... op = %d, head = %d, tail = %d, time = %d\n", op, sbuf[op]->head, sbuf[op]->tail, timer);
+			}
+*/
 
 	}
 }
@@ -322,7 +376,20 @@ void *func(void *data)
 	int port_num = *port;
 	int op = port_num%2;
 
-	printf("cocotion test port num = %d, op = %d\n", port_num, op);
+/*
+	cpu_set_t cpuset;
+	int cpu = op;
+//	int cpu = 7;
+	CPU_ZERO(&cpuset);
+	CPU_SET(cpu, &cpuset);
+	sched_setaffinity(0, sizeof(cpuset), &cpuset);
+
+*/
+
+
+
+	//cocotion fucking test
+	//printf("cocotion test port num = %d, op = %d\n", port_num, op);
 
 	sbuf[op] = malloc(sizeof(struct sendBuf));
 	sbuf[op]->buf = malloc(TOTAL_DATA_SIZE);
@@ -411,6 +478,9 @@ void *func(void *data)
 		usleep(runningtime);
 
 		gettimeofday(&start,NULL);
+		if(op == 0) {
+			gettimeofday(&start2,NULL);
+		}
 
 		int total_times = num/TOTAL_LEN;
 
@@ -444,6 +514,14 @@ void *func(void *data)
 				usleep(rand()%200);
 			}
 
+//cocotion fucking test
+/*
+			if(op == 0){
+				gettimeofday(&end2,NULL);
+				unsigned int timer = 1000000 * (end2.tv_sec-start2.tv_sec)+ end2.tv_usec-start2.tv_usec;
+				printf("********************now already pass %d\n", timer);
+			}
+*/
 
 			int start = sbuf[op]->tail;
 
@@ -517,14 +595,35 @@ void *func(void *data)
 		pthread_cond_signal(&cond[op]);
 		pthread_mutex_unlock(&mtx[op]);
 */
+//cocotion fucking test
+//		if(op == 0)
+//			printf("okok I recv now head = %d, tail = %d\n", sbuf[0]->head, sbuf[0]->tail);
 		recv(sockfd,receiveMessage,sizeof(receiveMessage),0);
 
 		gettimeofday(&end,NULL);
 		timer = 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
 
-		if(op%2 == 0)
-			printf("%ld\n", num/timer);
 
+		/*
+//cocotion fucking test
+		if(op%2 == 0) {
+			//printf("%ld\n", num/timer);
+			if(num/timer < 100) {
+				printf("start====#############===============\n");
+				printf("%ld\n", num/timer);
+				printf("num = %d\n", num);
+				printf("%ld\n", timer);
+				printf("end======############=============\n");
+			}
+			else {
+				printf("start@@@===================\n");
+				printf("%ld\n", num/timer);
+				printf("num = %d\n", num);
+				printf("%ld\n", timer);
+				printf("end====@@@@===============\n");
+			}
+		}
+*/
 
 		fscanf(file2, "%d", &runningtime);
 

@@ -14,7 +14,10 @@
 
 
 #define TOTAL_LEN (64*1024)
+//#define TOTAL_LEN (512*1024)
 #define TOTAL_DATA_SIZE (4*1024*1024)
+//#define TOTAL_DATA_SIZE (64*1024*1024)
+#define META_HEAD (TOTAL_DATA_SIZE/TOTAL_LEN)
 
 static pthread_mutex_t mtx[2];
 static pthread_cond_t cond[2];
@@ -181,6 +184,7 @@ void *trans_func(void *data)
 */
 	int op = 0;
 	while(1) {
+//again:
 		op = (op+1)%2;
 
 		//printf("op = %d\n", op);
@@ -190,6 +194,11 @@ void *trans_func(void *data)
 		int head, tail = 0;
 		int len = TOTAL_LEN;
 		int bottom = 0;
+
+		char **mbuf;
+		mbuf = (char**)malloc(2*sizeof(char*));
+		mbuf[0] = (char*)malloc(sizeof(char));
+		memset(&mbuf[0][0], 0, 1);
 
 		pthread_mutex_lock(&mtx[op]);
 
@@ -214,6 +223,12 @@ void *trans_func(void *data)
 //			goto again;
 //
 //
+/*			if((sbuf[(op+1)%2]->head != sbuf[(op+1)%2]->tail) || sbuf[(op+1)%2]->bottom) {
+
+				pthread_mutex_unlock(&mtx[op]);
+				goto again;
+			}
+*/
 /*
 			pthread_mutex_lock(&mtx[(op+1)%2]);
 			if((sbuf[(op+1)%2]->head != sbuf[(op+1)%2]->tail) || sbuf[(op+1)%2]->bottom) {
@@ -258,7 +273,7 @@ void *trans_func(void *data)
 
 		int offset = 0;
 
-		int num = ((tail-head) >= 65536) ? TOTAL_LEN : (tail-head);
+		int num = ((tail-head) >= TOTAL_LEN) ? TOTAL_LEN : (tail-head);
 		int total_times = num/TOTAL_LEN;
 		int i;
 /*
@@ -278,7 +293,8 @@ void *trans_func(void *data)
 
 		for(i = 0; i < total_times; i++) {
 			offset = 0;
-
+			len+=1;
+			mbuf[1] = buf+head;
 			do {
 //				sel++;
 //				pthread_mutex_lock(&mtx3);
@@ -289,8 +305,16 @@ void *trans_func(void *data)
 //				}
 //				printf("send op = %d\n", op);
 //				kick_trans = 0;
-	    		int ret = send(sockfd,buf + offset + head, len,0);
-//				printf("send op = %d\n", op);
+
+				//int ret = send(sockfd,buf + offset + head, len,0);
+				//mbuf[1] = buf+head;
+//				printf("before send content mbuf[1][0] = %c\n", mbuf[1][0]);
+				int ret = send(sockfd, mbuf[0] + offset , len,0);
+
+
+				printf("cocotion test op = %d, ret = %d, offset = %d len = %d\n", op, ret, offset, len);
+
+				//				printf("send op = %d\n", op);
 //				pthread_cond_signal(&cond3);
 //				pthread_mutex_unlock(&mtx3);
 				offset += ret;
@@ -306,6 +330,8 @@ void *trans_func(void *data)
 		int rest = num - total_times*TOTAL_LEN;
 
 		if(rest) {
+			rest+=1;
+			mbuf[1] = buf+head;
 			do {
 //				sel++;
 //				pthread_mutex_lock(&mtx3);
@@ -317,7 +343,15 @@ void *trans_func(void *data)
 
 
 //				kick_trans = 0;
-	    		int ret = send(sockfd,buf + offset + head, rest,0);
+	    		//int ret = send(sockfd,buf + offset + head, rest,0);
+
+
+				//mbuf[1] = buf+head;
+	    		int ret = send(sockfd, mbuf[0] + offset, rest,0);
+				printf("cocotion test rest op = %d, ret = %d, offset = %d len = %d\n", op, ret, offset, rest);
+
+
+
 //				printf("send op rest= %d\n", op);
 //				pthread_cond_signal(&cond3);
 //				pthread_mutex_unlock(&mtx3);
@@ -326,6 +360,7 @@ void *trans_func(void *data)
 			}while (rest);
 
 			head+=offset;
+			head-=1;
 		}
 
 		pthread_mutex_lock(&mtx[op]);
@@ -392,7 +427,7 @@ void *func(void *data)
 	//printf("cocotion test port num = %d, op = %d\n", port_num, op);
 
 	sbuf[op] = malloc(sizeof(struct sendBuf));
-	sbuf[op]->buf = malloc(TOTAL_DATA_SIZE);
+	sbuf[op]->buf = malloc(TOTAL_DATA_SIZE + META_HEAD);
 	sbuf[op]->head = sbuf[op]->tail = sbuf[op]->kick = sbuf[op]->bottom = 0;
 
 	int sockfd = socket_connect("172.31.3.2", port_num);
@@ -453,13 +488,13 @@ void *func(void *data)
 	pthread_t trans_thread;
 	if(op == 0) {
 
-		pthread_attr_t tattr;
-		int policy;
-		int ret;
+		//pthread_attr_t tattr;
+		//int policy;
+		//int ret;
 
-		pthread_attr_init(&tattr);
+		//pthread_attr_init(&tattr);
 
-		ret = pthread_attr_setschedpolicy(&tattr, SCHED_RR);
+		//ret = pthread_attr_setschedpolicy(&tattr, SCHED_RR);
 
 
 	//	pthread_t trans_thread;
@@ -645,6 +680,18 @@ void *func(void *data)
         		printf("no profile\n");
     		fclose(pFile);
 		}
+		if(op%2 == 1) {
+	   		FILE *pFile;
+   	   		char pbuf[200];
+			pFile = fopen("mytransfer_rate2.txt", "a");
+    		if(pFile != NULL){
+        		sprintf(pbuf, "%ld\n",num/timer);
+        		fputs(pbuf, pFile);
+    		}
+    		else
+        		printf("no profile\n");
+    		fclose(pFile);
+		}
 	}
 
 	if(op == 0) {
@@ -689,8 +736,19 @@ int main(int argc , char *argv[])
 
 	int port_num = atoi(argv[1]);
 
+/*
+	pthread_attr_t tattr1, tattr2;
+	int ret;
+	pthread_attr_init(&tattr1);
+	pthread_attr_init(&tattr2);
+	ret = pthread_attr_setschedpolicy(&tattr1, SCHED_FIFO);
+	ret = pthread_attr_setschedpolicy(&tattr2, SCHED_FIFO);
+*/
+
+
 	pthread_t appThread[2];
 
+	//pthread_create(&appThread[0], &tattr1, func, &port_num);
 	pthread_create(&appThread[0], NULL, func, &port_num);
 	int port_num2 = port_num+11;
 

@@ -96,18 +96,21 @@ int main(int argc , char *argv[])
     listen(sockfd,5);
 
 
-	char **mbuf;
-	mbuf = (char**)malloc(2*sizeof(char*));
-	mbuf[0] = (char*)malloc(sizeof(char));
-	memset(&mbuf[0][0], 0, 1);
+//	char **mbuf;
+//	mbuf = (char**)malloc(2*sizeof(char*));
+//	mbuf[0] = (char*)malloc(sizeof(char));
+//	memset(&mbuf[0][0], 0, 1);
 
-	mbuf[1] = (char*)malloc(sizeof(char)*len);
-
+//	mbuf[1] = (char*)malloc(sizeof(char)*len);
+//	mbuf[1][0] = 'X';
+// 	printf("@Get:%c\n",mbuf[1][0]);
+	memset(&inputBuffer[0], 0, 1);
 
 	//int total = TOTAL_DATA_SIZE;
 	int garbage = 0;
 	int pre_len;
 	FILE * file;
+	int head = 1;
     while(1){
         forClientSockfd = accept(sockfd,(struct sockaddr*) &clientInfo, &addrlen);
 
@@ -120,17 +123,16 @@ int main(int argc , char *argv[])
 			fclose(file);
 			return 0;
 		}
-		while (garbage || fscanf(file, "%d", &num)!=EOF) {
-			printf("everything start!!! garbage = %d\n", garbage);
+		while (fscanf(file, "%d", &num)!=EOF) {
 			int ret, offset = 0;
 
-			if(garbage)	 {
+/*			if(garbage)	 {
 				num = pre_len;
 				garbage = 0;
 //				goto again;
-			}
-			if(num == 0)
-				num = 1;
+			}*/
+			if(num < 2)
+				num = 2;
 
 			int total = num;
 
@@ -144,7 +146,6 @@ int main(int argc , char *argv[])
 			if(total < TOTAL_LEN) {
 				len = total;
 			}
-			printf("this time len block is num = %d ########################\n", len);
 
 
 //			printf("cocotion  test total = %d\n", total);
@@ -153,42 +154,64 @@ int main(int argc , char *argv[])
 
 			//int garbage = 0;
 
-			len+=1;
+			//len+=1;
 //again:
 			//mbuf[1] = inputBuffer;
+			garbage = 0;
+			head = 1;
 			while (1){
 				//mbuf[1] = inputBuffer+offset;
 				//ret = recv(forClientSockfd,inputBuffer+offset,len,0);
 				//mbuf[1] = inputBuffer+offset;
-				printf("cocotion test offset = %d, len = %d\n", offset, len);
-				ret = recv(forClientSockfd,mbuf[0]+offset,len,0);
+//				printf("cocotion test offset = %d, len = %d\n", offset, len);
+				//ret = recv(forClientSockfd,mbuf+offset,len,0);
 
-				if(ret == 0) break;
+				if(head) {
+//					ret = recv(forClientSockfd,inputBuffer,1,0);
+					ret = recv(forClientSockfd,inputBuffer,1,0);
+					printf("cocotion first head recv len = %d\n", ret);
+					head = 0;
+					if(ret == 0) break;
 
 
-				if(ret == -1) {
-					printf("@@@cocotion test offset = %d\n", offset);
-					exit(1);
-				}
-
-
-				if(mbuf[0][0]) {
-					//printf("!!!!!!Garbage packet!!!!!Please drop it!!!!!\n");
-					garbage = 1;
-					pre_len = num;
+					if(ret == -1) {
+						printf("@@@error error recv cocotion test offset = %d\n", offset);
+						exit(1);
+					}
+					if(inputBuffer[0]) {
+						printf("!!!!!!Garbage packet!!!!!Please drop it!!!!!\n");
+						garbage = 1;
+					//	pre_len = num;
 					//total++;
-					memset(&mbuf[0][0], 0, 1);
-				}
-				else {
-					printf("load buffer okokok\n");
-					//load inputBuffer
+//					memset(&mbuf[0][0], 0, 1);
+						memset(&inputBuffer[0], 0, 1);
+						//exit(1);
+					}
+					if(garbage) {
+						printf("!!!!!!Garbage packet!!!!!Please drop it!!!!!\n");
+						int glen = TOTAL_LEN;
+						int goffset = 0;
+						do {
+							ret = recv(forClientSockfd,inputBuffer+1+goffset,glen,0);
+							glen -= ret;
+							goffset += ret;
+						} while (glen);
+						//len = total = TOTAL_LEN;
+						head = 1;
+						garbage = 0;
+        				send(forClientSockfd,message,sizeof(message),0);
+						continue;
+					}
 				}
 
-				if(garbage) {
-					printf("!!!!!!Garbage packet!!!!!Please drop it!!!!!\n");
-				}
 
 
+			//	ret = recv(forClientSockfd,inputBuffer+offset,len,0);
+//				printf("cocotion recv len = %d\n", ret);
+ 			    //printf("Get:%c\n",mbuf[1][0]);
+
+				//if(mbuf[0][0]) {
+				ret = recv(forClientSockfd,inputBuffer+1+offset,len,0);
 				//if(ret == 0) break;
 
 
@@ -196,28 +219,34 @@ int main(int argc , char *argv[])
 				offset += ret;
 				len = len - ret;
 
+				printf("cocotion total = %d\n", total);
+				printf("cocotion offset = %d\n", offset);
 
 				printf("cocotion recv len = %d\n", ret);
+				printf("cocotion rest len = %d\n", len);
+
 				if(len == 0) {
 					total-=offset;
-					total+=1;
+					//total+=1;
 					//total+=garbage;
-					printf("cocotion test rest recv = %d\n", total);
+					printf("cocotion test rest total = %d\n", total);
 					if(total == 0)
 						break;
 					else {
+						head = 1;
+						garbage = 0;
 						offset = 0;
 						len = TOTAL_LEN;
 						if(total < TOTAL_LEN) {
 							len = total;
 						}
-						len = len + 1;
+						//len = len + 1;
 					}
 				}
 			}
 			printf("cocotion test ok I recv all\n");
 
-			if(garbage) continue;
+			//if(garbage) continue;
 //			int i;
 		//for(i = 0; i < TOTAL_LEN; i++) {
 		//	if(inputBuffer[i] != '@' ) break;
@@ -228,11 +257,10 @@ int main(int argc , char *argv[])
 		//}
 		//usleep(100);
         	send(forClientSockfd,message,sizeof(message),0);
-			printf("okokokok Got next recv ffffffffffu\n");
-			printf("everything end!!! garbage = %d\n", garbage);
+			printf("cocotion test ok go next\n");
         //printf("Get:%s\n",inputBuffer);
-        //printf("Get:%s\n",mbuf[1]);
-        //printf("Get:%c\n",mbuf[1][0]);
+//        printf("Get:%s\n",mbuf[1]);
+ //       printf("Get:%c\n",mbuf[1][0]);
     	}
 	}
 

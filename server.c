@@ -199,7 +199,7 @@ int main(int argc , char *argv[])
 						//len = total = TOTAL_LEN;
 						head = 1;
 						garbage = 0;
-        				send(forClientSockfd,message,sizeof(message),0);
+        				//send(forClientSockfd,message,sizeof(message),0);
 						continue;
 					}
 				}

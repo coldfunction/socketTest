@@ -155,19 +155,26 @@ void *garbage_send_func(void *data)
 
 
         do {
+			if(tbuf->stop_send_garbage) break;
+			else if (len == 0) {
+				len = buf_size;
+				offset = 0;
+			}
 			int ret = send(sockfd,buf + offset, len,0);
 			offset += ret;
 	    	len = len - ret;
 			printf("start already send garbage len = %d\n", offset);
 			printf("start rest send garbage len = %d\n", len);
-		} while (len);
+//		} while (len);
+		} while (1);
 
 		//pthread_mutex_lock(&mtx4[op]);
 		//kick_trans = 0;
 		//pthread_cond_signal(&cond4[op]);
 		//pthread_mutex_unlock(&mtx4[op]);
 
-
+		//char receiveMessage[100] = {};
+		//recv(sockfd,receiveMessage,sizeof(receiveMessage),0);
 
 	}
 
@@ -182,6 +189,9 @@ void send_garbage(int op)
 	sbuf[op]->stop_send_garbage = 0;
 	pthread_cond_signal(&cond2[op]);
 	pthread_mutex_unlock(&mtx2[op]);
+
+
+
 }
 
 void stop_send_garbage(int op)
@@ -189,6 +199,11 @@ void stop_send_garbage(int op)
 	pthread_mutex_lock(&mtx2[op]);
 	sbuf[op]->stop_send_garbage = 1;
 	pthread_mutex_unlock(&mtx2[op]);
+
+//	int sockfd = sbuf[op]->sockfd;
+
+//	char receiveMessage[100] = {};
+//	recv(sockfd,receiveMessage,sizeof(receiveMessage),0);
 }
 
 void *trans_func(void *data)
@@ -315,10 +330,11 @@ void *trans_func(void *data)
 			}
 			pthread_mutex_unlock(&mtx[(op+1)%2]);
 */
-			//send_garbage(op);
+			send_garbage(op);
 			//garbage_send_func(sbuf[op]);
 
 			pthread_cond_wait(&cond[op], &mtx[op]);
+			//stop_send_garbage(op);
 //			pthread_mutex_unlock(&mtx[op]);
 
 
@@ -418,7 +434,7 @@ void *trans_func(void *data)
 			//dododo
 		}
 */
-		//stop_send_garbage(op);
+		stop_send_garbage(op);
 //        char *ptr;
         char mmbuf;
     	memset(&mmbuf, 0, 1);

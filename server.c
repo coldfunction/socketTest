@@ -187,7 +187,7 @@ int main(int argc , char *argv[])
 
 					len = *(int*)mylen;
 					printf("cocococo len = %d get \n", len);
-
+					if(len == 0) exit(1);
 					/*
 					ret = recv(forClientSockfd,&len,4,0);
 					printf("cocococo len = %d get \n", len);
@@ -195,7 +195,7 @@ int main(int argc , char *argv[])
 						printf("fucking!!!!!!!!!!!!!! ret = %d, len = %d\n", ret, len);
 						exit(1);
 					}*/
-					if(ret == 0) break;
+					//if(ret == 0) break;
 
 
 					if(ret == -1) {
@@ -232,8 +232,8 @@ int main(int argc , char *argv[])
 						//int r;
 						//while(r = send(forClientSockfd,message,1,0) == -1) ;
 
-        				//int r = send(forClientSockfd,message,1,0);
-						//printf("already send after garbage send %d bytes\n", r);
+        			//	int r = send(forClientSockfd,message,1,0);
+					//	printf("already send after garbage send %d bytes\n", r);
 						//exit(1);
 						continue;
 					}
@@ -294,7 +294,10 @@ int main(int argc , char *argv[])
 		//}
 		//usleep(100);
 //        	send(forClientSockfd,message,sizeof(message),0);
-        	send(forClientSockfd,message,1,0);
+
+			do {
+        		ret = send(forClientSockfd,message,1,0);
+			} while (ret != 1);
 			printf("cocotion test ok go next\n");
         //printf("Get:%s\n",inputBuffer);
 //        printf("Get:%s\n",mbuf[1]);

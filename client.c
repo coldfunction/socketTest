@@ -144,9 +144,12 @@ void *garbage_send_func(void *data)
 	while(1) {
 
 		do {
-            printf("wait to send garbage!!!!\n");
+            printf("op = %d, wait to send garbage!!!!\n", op);
+			//tbuf->stop_send_garbage = 0;
 			pthread_mutex_lock(&mtx2[op]);
+			tbuf->kick = 0;
 			pthread_cond_wait(&cond2[op], &mtx2[op]);
+			tbuf->kick = 1;
 			pthread_mutex_unlock(&mtx2[op]);
 		} while (tbuf->stop_send_garbage);
 
@@ -155,7 +158,10 @@ void *garbage_send_func(void *data)
 
 
         do {
-			if(tbuf->stop_send_garbage) break;
+			if(tbuf->stop_send_garbage) {
+				//tbuf->stop_send_garbage = 0;
+				break;
+			}
 			//else if (len == 0) {
 			//	len = buf_size;
 			//	offset = 0;
@@ -163,9 +169,21 @@ void *garbage_send_func(void *data)
 			int ret = 0;
 //			while ( ret = send(sockfd,buf + offset, len,0) == -1) ;
 			if(offset == 0) {
-				ret = send(sockfd,buf, 1,0);
+				do {
+					ret = send(sockfd,buf, 1,0);
+				} while (ret != 1);
 				offset += 1;
-				ret = send(sockfd, &len, 4, 0);
+
+				int sublen = 4;
+				int myoffset = 0;
+				int *plen;
+				plen = &len;
+				do {
+					//ret = send(sockfd, &len, 4, 0);
+					ret = send(sockfd, (char*)plen+myoffset, sublen, 0);
+					sublen -= ret;
+					myoffset += ret;
+				} while (sublen);
 			}
 			ret = send(sockfd,buf + offset -1 , len,0);
 //			if(ret == -1) {
@@ -181,6 +199,7 @@ void *garbage_send_func(void *data)
 		} while (len);
 //		} while (1);
 
+		printf("after op = %d !!!!!!!!!!!!!\n", op);
 //		exit(1);
 		//pthread_mutex_lock(&mtx4[op]);
 		//kick_trans = 0;
@@ -217,10 +236,12 @@ void stop_send_garbage(int op)
 //	int sockfd = sbuf[op]->sockfd;
 
 	printf("in stop_send_garbage now op = %d before recv\n", op);
+	while(sbuf[op]->kick) {printf("shit!!\n");}
 	//char receiveMessage[100] = {};
 //	char receiveMessage;
 //	int ret = recv(sbuf[op]->sockfd,&receiveMessage,1,0);
-//	printf("in stop_send_garbage now op = %d after recv and recv %d bytes\n", op, ret);
+	int ret = 0;
+	printf("in stop_send_garbage now op = %d after recv and recv %d bytes\n", op, ret);
 //	exit(1); //cocotion now debug here
 }
 
@@ -348,11 +369,11 @@ void *trans_func(void *data)
 			}
 			pthread_mutex_unlock(&mtx[(op+1)%2]);
 */
-//			send_garbage(op);
+			send_garbage(op);
 			//garbage_send_func(sbuf[op]);
 
 			pthread_cond_wait(&cond[op], &mtx[op]);
-//			stop_send_garbage(op);
+			stop_send_garbage(op);
 //			pthread_mutex_unlock(&mtx[op]);
 
 
@@ -519,7 +540,7 @@ void *trans_func(void *data)
 						sublen -= ret;
 						myoffset += ret;
 					} while (sublen) ;
-					printf("cocotion send len = %d, ret = %d\n", len, ret);
+					printf("cocotion op = %d, send len = %d, ret = %d\n",op,  len, ret);
                 }
 //				ret = send(sockfd, ptr + offset -1 , len,0);
 
@@ -527,7 +548,7 @@ void *trans_func(void *data)
 				ret = send(sockfd, buf+head + offset -1 , len,0);
 
 
-			printf("cocotion test op = %d, ret = %d, offset = %d len = %d\n", op, ret, offset, len);
+			printf("       cocotion test op = %d, ret = %d, offset = %d len = %d\n", op, ret, offset, len);
 
 				//				printf("send op = %d\n", op);
 //				pthread_cond_signal(&cond3);
@@ -605,12 +626,7 @@ void *trans_func(void *data)
 						myoffset += ret;
 					} while (sublen) ;
 
-
-
-
-
-
-					printf("cocotion send rest len = %d, ret = %d\n", rest, ret);
+					printf("cocotion op = %d, send rest len = %d, ret = %d\n", op, rest, ret);
                 }
 //				while ( ret = send(sockfd, buf+head + offset -1 ,rest,0) == -1);
 				ret = send(sockfd, buf+head + offset -1 ,rest,0);
@@ -618,7 +634,7 @@ void *trans_func(void *data)
 				//	continue;
 
 
-                printf("cocotion test rest op = %d, ret = %d, offset = %d len = %d\n", op, ret, offset, rest);
+                printf("        cocotion test rest op = %d, ret = %d, offset = %d len = %d\n", op, ret, offset, rest);
 //				exit(1);
 
 
@@ -1005,8 +1021,10 @@ void *func(void *data)
 //		if(op == 0)
 			printf("okok I recv now op = %d, head = %d, tail = %d, num = %d\n", op, sbuf[op]->head, sbuf[op]->tail, num);
 		//recv(sockfd,receiveMessage,sizeof(receiveMessage),0);
-		recv(sockfd,receiveMessage,1,0);
-
+		int ret;
+		do {
+			ret = recv(sockfd,receiveMessage,1,0);
+		} while(ret != 1);
 		//pthread_mutex_lock(&mtx[op]);
 		//pthread_mutex_unlock(&mtx[op]);
 

@@ -168,9 +168,33 @@ int main(int argc , char *argv[])
 
 				if(head) {
 //					ret = recv(forClientSockfd,inputBuffer,1,0);
-					ret = recv(forClientSockfd,inputBuffer,1,0);
-					printf("cocotion first head recv len = %d\n", ret);
+//
+					do {
+						ret = recv(forClientSockfd,inputBuffer,1,0);
+						printf("cocotion first head recv len = %d\n", ret);
+					} while (ret != 1);
 					head = 0;
+
+					char mylen[4];
+					int sublen = 4;
+					int myoffset = 0;
+					do {
+						ret = recv(forClientSockfd,mylen+myoffset,sublen,0);
+						printf("cocococo ret = %d get \n", ret);
+						sublen-=ret;
+						myoffset+=ret;
+					} while (sublen) ;
+
+					len = *(int*)mylen;
+					printf("cocococo len = %d get \n", len);
+
+					/*
+					ret = recv(forClientSockfd,&len,4,0);
+					printf("cocococo len = %d get \n", len);
+					if(ret != 4) {
+						printf("fucking!!!!!!!!!!!!!! ret = %d, len = %d\n", ret, len);
+						exit(1);
+					}*/
 					if(ret == 0) break;
 
 
@@ -195,11 +219,22 @@ int main(int argc , char *argv[])
 							ret = recv(forClientSockfd,inputBuffer+1+goffset,glen,0);
 							glen -= ret;
 							goffset += ret;
+							printf("cocotion test already recv goffset = %d\n", goffset);
 						} while (glen);
 						//len = total = TOTAL_LEN;
 						head = 1;
 						garbage = 0;
-        				//send(forClientSockfd,message,sizeof(message),0);
+
+
+				//		ret = recv(forClientSockfd,&len,4,0);
+
+					//	exit(1);
+						//int r;
+						//while(r = send(forClientSockfd,message,1,0) == -1) ;
+
+        				//int r = send(forClientSockfd,message,1,0);
+						//printf("already send after garbage send %d bytes\n", r);
+						//exit(1);
 						continue;
 					}
 				}
@@ -232,16 +267,18 @@ int main(int argc , char *argv[])
 					printf("cocotion test rest total = %d\n", total);
 					if(total == 0)
 						break;
-					else {
-						head = 1;
-						garbage = 0;
-						offset = 0;
-						len = TOTAL_LEN;
-						if(total < TOTAL_LEN) {
-							len = total;
-						}
+					//else {
+					//	head = 1;
+					//	garbage = 0;
+					//	offset = 0;
+					//	len = TOTAL_LEN;
+					//	if(total < TOTAL_LEN) {
+					//		len = total;
+					//	}
 						//len = len + 1;
-					}
+					//}
+					head = 1;
+					offset = 0;
 				}
 			}
 			printf("cocotion test ok I recv all\n");
@@ -256,7 +293,8 @@ int main(int argc , char *argv[])
 		//	message[0] = '@';
 		//}
 		//usleep(100);
-        	send(forClientSockfd,message,sizeof(message),0);
+//        	send(forClientSockfd,message,sizeof(message),0);
+        	send(forClientSockfd,message,1,0);
 			printf("cocotion test ok go next\n");
         //printf("Get:%s\n",inputBuffer);
 //        printf("Get:%s\n",mbuf[1]);

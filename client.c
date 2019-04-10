@@ -144,7 +144,7 @@ void garbage_send_func2(void *data) {
 		printf("op = %d, start rest send garbage len = %d\n", op, len);
 #endif
 	} while (len);
-
+	free(buf);
 }
 
 void *garbage_send_func(void *data)
@@ -262,6 +262,13 @@ void stop_send_garbage(int op)
 
 void *trans_func(void *data)
 {
+	cpu_set_t cpuset;
+//	int cpu = op;
+	int cpu = 7;
+	CPU_ZERO(&cpuset);
+	CPU_SET(cpu, &cpuset);
+	sched_setaffinity(0, sizeof(cpuset), &cpuset);
+
 	int op = 0;
 	while(1) {
 
@@ -324,20 +331,20 @@ void *trans_func(void *data)
 
 
 
-			send_garbage(op);
+//			send_garbage(op);
 			//garbage_send_func(sbuf[op]);
-			//garbage_send_func2(sbuf[op]);
-//			pthread_mutex_unlock(&mtx[op]);
 //			garbage_send_func2(sbuf[op]);
-//			usleep(100);
-/*
+			pthread_mutex_unlock(&mtx[op]);
+			garbage_send_func2(sbuf[op]);
+			usleep(100);
+
 			op = (op+1)%2;
 			sockfd = sbuf[op]->sockfd;
 			buf  = sbuf[op]->buf;
 			pthread_mutex_lock(&mtx[op]);
 			//usleep(50);
 			continue;
-*/
+
 
 			pthread_cond_wait(&cond[op], &mtx[op]);
 			stop_send_garbage(op);

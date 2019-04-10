@@ -29,20 +29,9 @@ pthread_t mythread;
 static pthread_mutex_t mtx[2];
 static pthread_cond_t cond[2];
 
-//mtx[0] = PTHREAD_MUTEX_INITIALIZER;
-//cond[0] = PTHREAD_COND_INITIALIZER;
-
-//mtx[1] = PTHREAD_MUTEX_INITIALIZER;
-//cond[1] = PTHREAD_COND_INITIALIZER;
-
 static pthread_mutex_t mtx2[2];
 static pthread_cond_t cond2[2];
 
-//mtx2[0] = PTHREAD_MUTEX_INITIALIZER;
-//cond2[0] = PTHREAD_COND_INITIALIZER;
-
-//mtx2[1] = PTHREAD_MUTEX_INITIALIZER;
-//cond2[1] = PTHREAD_COND_INITIALIZER;
 
 static pthread_mutex_t mtx3;
 static pthread_cond_t cond3;
@@ -79,20 +68,6 @@ struct sendBuf
 
 struct sendBuf *sbuf[2];
 
-/*
-void send_garbage()
-{
-	pthread_t gthread;
-	pthread_create(&gthread, NULL, trans_g_func, NULL);
-
-}
-
-void stop_send_garbage()
-{
-
-
-}
-*/
 
 int socket_connect(char *ip, int port_num)
 {
@@ -123,51 +98,38 @@ int socket_connect(char *ip, int port_num)
 
 void *garbage_send_func(void *data)
 {
-	//int sockfd = *(int*)data;
 	struct sendBuf *tbuf = (struct sendBuf*)data;
-//	int sockfd = tbuf->sockfd2;
 	int sockfd = tbuf->sockfd;
 
 	int op = tbuf->op;
     printf("wait op = %d, sockfd = %d\n", op, sockfd);
-    //op = 0;
-//	char buf[] = {"g"};
-//	int buf_size = 65536;
-//	int buf_size = 4;
 	int buf_size = 65537;
-//	int buf_size = 131072;
 	char *buf = malloc(buf_size);
-//    bzero(buf,buf_size);
-//	memset(buf, 1, 1);
 	memset(&buf[0], 1, 1);
 
 	while(1) {
 
+		pthread_mutex_lock(&mtx2[op]);
 		do {
             printf("op = %d, wait to send garbage!!!!\n", op);
-			//tbuf->stop_send_garbage = 0;
-			pthread_mutex_lock(&mtx2[op]);
+			pthread_mutex_lock(&mtx4[op]);
 			tbuf->kick = 0;
+			pthread_cond_signal(&cond4[op]);
+			pthread_mutex_unlock(&mtx4[op]);
 			pthread_cond_wait(&cond2[op], &mtx2[op]);
+			pthread_mutex_lock(&mtx4[op]);
 			tbuf->kick = 1;
-			pthread_mutex_unlock(&mtx2[op]);
+			pthread_mutex_unlock(&mtx4[op]);
+			//pthread_mutex_unlock(&mtx2[op]);
 		} while (tbuf->stop_send_garbage);
+		pthread_mutex_unlock(&mtx2[op]);
 
-while (!tbuf->stop_send_garbage) {
+while (tbuf->stop_send_garbage == 0) {
 		int len = buf_size-1;
 		int offset = 0;
 
         do {
-//			if(tbuf->stop_send_garbage) {
-				//tbuf->stop_send_garbage = 0;
-//				break;
-//			}
-			//else if (len == 0) {
-			//	len = buf_size;
-			//	offset = 0;
-			//}
 			int ret = 0;
-//			while ( ret = send(sockfd,buf + offset, len,0) == -1) ;
 			if(offset == 0) {
 				do {
 					ret = send(sockfd,buf, 1,0);
@@ -179,37 +141,21 @@ while (!tbuf->stop_send_garbage) {
 				int *plen;
 				plen = &len;
 				do {
-					//ret = send(sockfd, &len, 4, 0);
 					ret = send(sockfd, (char*)plen+myoffset, sublen, 0);
 					sublen -= ret;
 					myoffset += ret;
 				} while (sublen);
 			}
 			ret = send(sockfd,buf + offset -1 , len,0);
-//			if(ret == -1) {
-//				len = buf_size;
-//				offset = 0;
-//				continue;
-//			}
 
 			offset += ret;
 	    	len = len - ret;
 			printf("op = %d, start already send garbage len = %d sockfd = %d\n", op, offset, sockfd);
 			printf("op = %d, start rest send garbage len = %d\n", op, len);
 		} while (len);
-//		} while (1);
 }
 
 		printf("after op = %d !!!!!!!!!!!!!\n", op);
-//		exit(1);
-		//pthread_mutex_lock(&mtx4[op]);
-		//kick_trans = 0;
-		//pthread_cond_signal(&cond4[op]);
-		//pthread_mutex_unlock(&mtx4[op]);
-
-		//char receiveMessage[100] = {};
-		//recv(sockfd,receiveMessage,sizeof(receiveMessage),0);
-
 	}
 
 	printf("send okokokokokokok garbage_send_func\n");
@@ -234,49 +180,27 @@ void stop_send_garbage(int op)
 	sbuf[op]->stop_send_garbage = 1;
 	pthread_mutex_unlock(&mtx2[op]);
 
-//	int sockfd = sbuf[op]->sockfd;
-
 	printf("in stop_send_garbage now op = %d before recv\n", op);
-	while(sbuf[op]->kick) ;//{printf("shit!!\n");}
 
-	//char receiveMessage[100] = {};
-//	char receiveMessage;
-//	int ret = recv(sbuf[op]->sockfd,&receiveMessage,1,0);
+	pthread_mutex_lock(&mtx4[op]);
+
+	while(sbuf[op]->kick) {
+		pthread_cond_wait(&cond4[op], &mtx4[op]);
+	}
+	pthread_mutex_unlock(&mtx4[op]);
+
+	//while(sbuf[op]->kick);
+
+
 	int ret = 0;
 	printf("in stop_send_garbage now op = %d after recv and recv %d bytes\n", op, ret);
-//	exit(1); //cocotion now debug here
 }
 
 void *trans_func(void *data)
 {
-
-
-//	struct sendBuf *tbuf = (struct sendBuf*)data;
-//	int op = tbuf->op;
-
-//	cpu_set_t cpuset;
-//	int cpu = op%2;
-//	int cpu = 7;
-//	CPU_ZERO(&cpuset);
-//	CPU_SET(cpu, &cpuset);
-//	sched_setaffinity(0, sizeof(cpuset), &cpuset);
-
-//	unsigned int sel = op;
-/*
-
-	int sockfd = tbuf->sockfd;
-	char *buf  = tbuf->buf;
-	int head, tail = 0;
-	int len = TOTAL_LEN;
-	int bottom = 0;
-	static int clear_rest = 0;
-*/
 	int op = 0;
 	while(1) {
-//again:
 		op = (op+1)%2;
-
-		//printf("op = %d\n", op);
 
 		char *buf  = sbuf[op]->buf;
 		int sockfd = sbuf[op]->sockfd;
@@ -284,42 +208,7 @@ void *trans_func(void *data)
 		int len = TOTAL_LEN;
 		int bottom = 0;
 
-      //  int fd = sbuf[op]->fd;
-
-
-        //char mbuf;
-
-        //mmap(&mbuf, 1, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
-
-
-//		char **mbuf;
-//		mbuf = (char**)malloc(2*sizeof(char*));
-//		mbuf[0] = (char*)malloc(sizeof(char));
-//		memset(&mbuf[0][0], 0, 1);
-//		char **mbuf;
-
- //       printf("op = %d, before xxxx address test mbuf = %p\n", op, (char*)mbuf);
-//		printf("op = %d, before xxxx address test mbuf+1 = %p\n", op, (char*)mbuf+1);
-
- //       mbuf = (char**)malloc(2*sizeof(char*));
-//		mbuf[0] = (char*)malloc(sizeof(char));
-//		memset(&mbuf[0][0], 0, 1);
-
-
-//		printf("op = %d, before address test mbuf = %p\n", op, (char*)mbuf);
-//		printf("op = %d, before address test mbuf+1 = %p\n", op, (char*)mbuf+1);
-//		printf("op = %d, before address test mbuf+2 = %p\n", op, (char*)mbuf+2);
-//		printf("op = %d, before address test mbuf[0] = %p\n", op, (char*)mbuf[0]);
-//		printf("op = %d, before address test mbuf[1] = %p\n", op, (char*)mbuf[1]);
-
-//        printf("sockfd = %d\n", sbuf[op]->sockfd);
-//			send_garbage(op);
- //       usleep(1000);
-  //      exit(1);
 		pthread_mutex_lock(&mtx[op]);
-//		pthread_cond_signal(&cond[op]);
-
 
 		if(sbuf[op]->op_switch) {
 			pthread_mutex_unlock(&mtx[op]);
@@ -332,32 +221,8 @@ void *trans_func(void *data)
 
 		while (sbuf[op]->head == sbuf[op]->tail) {
 			if(sbuf[op]->bottom) break;
- //           usleep(1000);
-		//	send_garbage(op);
 			printf("wait op = %d, head = %d, tail = %d\n", op, sbuf[op]->head, sbuf[op]->tail);
-//			printf("after send garbage command stop garbage = %d\n", tbuf->stop_send_garbage);
 
-//cocotion fucking
-/*
-			if(op == 0) {
-			gettimeofday(&end2,NULL);
-			unsigned int timer = 1000000 * (end2.tv_sec-start2.tv_sec)+ end2.tv_usec-start2.tv_usec;
-
-			printf("wait op = %d, head = %d, tail = %d, time = %d\n", op, sbuf[op]->head, sbuf[op]->tail, timer);
-			}
-*/
-
-
-			//			pthread_mutex_unlock(&mtx[op]);
-//			goto again;
-//
-//
-/*			if((sbuf[(op+1)%2]->head != sbuf[(op+1)%2]->tail) || sbuf[(op+1)%2]->bottom) {
-
-				pthread_mutex_unlock(&mtx[op]);
-				goto again;
-			}
-*/
 /*
 			pthread_mutex_lock(&mtx[(op+1)%2]);
 			if((sbuf[(op+1)%2]->head != sbuf[(op+1)%2]->tail) || sbuf[(op+1)%2]->bottom) {
@@ -632,7 +497,8 @@ void *trans_func(void *data)
                 }
 //				while ( ret = send(sockfd, buf+head + offset -1 ,rest,0) == -1);
 				ret = send(sockfd, buf+head + offset -1 ,rest,0);
-				//if(ret == -1)
+				if(ret == -1)
+					exit(1);
 				//	continue;
 
 

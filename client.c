@@ -99,6 +99,46 @@ int socket_connect(char *ip, int port_num)
 	return sockfd;
 }
 
+void garbage_send_func2(void *data) {
+	struct sendBuf *tbuf = (struct sendBuf*)data;
+	int sockfd = tbuf->sockfd;
+
+	int op = tbuf->op;
+    printf("wait op = %d, sockfd = %d\n", op, sockfd);
+	int buf_size = 65537;
+	char *buf = malloc(buf_size);
+	memset(&buf[0], 1, 1);
+
+	int len = buf_size-1;
+	int offset = 0;
+
+    do {
+		int ret = 0;
+		if(offset == 0) {
+			do {
+				ret = send(sockfd,buf, 1,0);
+			} while (ret != 1);
+			offset += 1;
+
+			int sublen = 4;
+			int myoffset = 0;
+			int *plen;
+			plen = &len;
+			do {
+				ret = send(sockfd, (char*)plen+myoffset, sublen, 0);
+				sublen -= ret;
+				myoffset += ret;
+			} while (sublen);
+		}
+		ret = send(sockfd,buf + offset -1 , len,0);
+
+		offset += ret;
+	    len = len - ret;
+		printf("op = %d, start already send garbage len = %d sockfd = %d\n", op, offset, sockfd);
+		printf("op = %d, start rest send garbage len = %d\n", op, len);
+	} while (len);
+
+}
 
 void *garbage_send_func(void *data)
 {
@@ -206,7 +246,7 @@ void *trans_func(void *data)
 	while(1) {
 
 
-		send_garbage(op); //cocotion test
+//		send_garbage(op); //cocotion test
 
 		op = (op+1)%2;
 
@@ -247,22 +287,38 @@ void *trans_func(void *data)
 
 */
 
+/*
 			if(sbuf[op]->op_switch) {
 				pthread_mutex_unlock(&mtx[op]);
 				op = (op+1)%2;
-				stop_send_garbage(op); //cocotion test
+//				stop_send_garbage(op); //cocotion test
 				sockfd = sbuf[op]->sockfd;
 				buf  = sbuf[op]->buf;
 				pthread_mutex_lock(&mtx[op]);
 				continue;
 
 			}
+*/
 
-			send_garbage(op);
+
+
+		//	send_garbage(op);
 			//garbage_send_func(sbuf[op]);
+			//garbage_send_func2(sbuf[op]);
+			pthread_mutex_unlock(&mtx[op]);
+			garbage_send_func2(sbuf[op]);
+			//usleep(50);
+
+			op = (op+1)%2;
+			sockfd = sbuf[op]->sockfd;
+			buf  = sbuf[op]->buf;
+			pthread_mutex_lock(&mtx[op]);
+			//usleep(50);
+			continue;
+
 
 			pthread_cond_wait(&cond[op], &mtx[op]);
-			stop_send_garbage(op);
+//			stop_send_garbage(op);
 //			pthread_mutex_unlock(&mtx[op]);
 
 
@@ -581,7 +637,7 @@ void *trans_func(void *data)
 			}
 */
 
-		stop_send_garbage((op+1)%2); //cocotion test
+//		stop_send_garbage((op+1)%2); //cocotion test
 
 	}
 }

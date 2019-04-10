@@ -39,6 +39,10 @@ static pthread_cond_t cond3;
 static pthread_mutex_t mtx4[2];
 static pthread_cond_t cond4[2];
 
+
+static pthread_barrier_t barr;
+
+
 int kick_trans = 1;
 int op_switch = 0;
 
@@ -209,7 +213,7 @@ void *trans_func(void *data)
 		int bottom = 0;
 
 		pthread_mutex_lock(&mtx[op]);
-
+/*
 		if(sbuf[op]->op_switch) {
 			pthread_mutex_unlock(&mtx[op]);
 			op = (op+1)%2;
@@ -218,7 +222,7 @@ void *trans_func(void *data)
 			printf("cocotion test here is op = %d\n", op);
 			pthread_mutex_lock(&mtx[op]);
 		}
-
+*/
 		while (sbuf[op]->head == sbuf[op]->tail) {
 			if(sbuf[op]->bottom) break;
 			printf("wait op = %d, head = %d, tail = %d\n", op, sbuf[op]->head, sbuf[op]->tail);
@@ -235,7 +239,20 @@ void *trans_func(void *data)
 				break;
 			}
 			pthread_mutex_unlock(&mtx[(op+1)%2]);
+
+
 */
+
+			if(sbuf[op]->op_switch) {
+				pthread_mutex_unlock(&mtx[op]);
+				op = (op+1)%2;
+				sockfd = sbuf[op]->sockfd;
+				buf  = sbuf[op]->buf;
+				pthread_mutex_lock(&mtx[op]);
+				continue;
+
+			}
+
 			send_garbage(op);
 			//garbage_send_func(sbuf[op]);
 
@@ -245,6 +262,7 @@ void *trans_func(void *data)
 
 
 //			garbage_send_func(sbuf[op]);
+/*
 			if(sbuf[op]->op_switch) {
 				pthread_mutex_unlock(&mtx[op]);
 				op = (op+1)%2;
@@ -253,7 +271,7 @@ void *trans_func(void *data)
 				printf("cocotion test here is op wake up= %d\n", op);
 				pthread_mutex_lock(&mtx[op]);
 			}
-
+*/
 
 
 
@@ -749,7 +767,7 @@ void *func(void *data)
 
 			len = TOTAL_LEN;
 
-
+/*
 			pthread_mutex_lock(&mtx[op]);
 			int start = sbuf[op]->tail;
 
@@ -757,6 +775,41 @@ void *func(void *data)
 				sbuf[op]->bottom = start;
 				sbuf[op]->tail = 0;
 				pthread_cond_signal(&cond[op]);
+
+				printf("op#####= %d, total_len#####, bottom = %d\n", op, start);
+			}
+			//else
+			//	sbuf[op]->tail = start;
+
+			printf("@@@@@@@@@@@@@ op = %d, tail = %d, head = %d\n", op, sbuf[op]->tail, sbuf[op]->head);
+			//pthread_cond_signal(&cond[op]);
+			pthread_mutex_unlock(&mtx[op]);
+*/
+
+/////////////////////
+			int tail;
+			pthread_mutex_lock(&mtx[op]);
+			tail = sbuf[op]->tail;
+			if(tail < sbuf[op]->head) {
+				while(tail+len >= sbuf[op]->head) {
+					printf("@@@@@@@@@@@@@ wait op = %d\n", op);
+					pthread_cond_signal(&cond[op]);
+					//pthread_cond_signal(&cond[(op+1)%2]);
+					pthread_cond_wait(&cond[op], &mtx[op]);
+					break;
+				}
+			}
+			pthread_mutex_unlock(&mtx[op]);
+
+			pthread_mutex_lock(&mtx[op]);
+			tail = sbuf[op]->tail;
+
+			if(tail + TOTAL_LEN >= TOTAL_DATA_SIZE) {
+				sbuf[op]->bottom = tail;
+				sbuf[op]->tail = 0;
+				pthread_cond_signal(&cond[op]);
+
+				printf("op#####= %d, total_len#####, bottom = %d\n", op, tail);
 			}
 			//else
 			//	sbuf[op]->tail = start;
@@ -766,22 +819,16 @@ void *func(void *data)
 			//pthread_mutex_unlock(&mtx[op]);
 
 
+
+
+/////////////////////
+
+
+
 			//pthread_mutex_lock(&mtx[op]);
-
-			start = sbuf[op]->tail;
-
-			if(start < sbuf[op]->head) {
-				while(start+len > sbuf[op]->head) {
-					printf("@@@@@@@@@@@@@ wait op = %d\n", op);
-					pthread_cond_signal(&cond[op]);
-					pthread_cond_signal(&cond[(op+1)%2]);
-					pthread_cond_wait(&cond[op], &mtx[op]);
-					break;
-				}
-			}
-
-			start += len;
-			sbuf[op]->tail = start;
+			tail = sbuf[op]->tail;
+			tail += len;
+			sbuf[op]->tail = tail;
 			pthread_cond_signal(&cond[op]);
 			pthread_mutex_unlock(&mtx[op]);
 
@@ -807,7 +854,7 @@ void *func(void *data)
 		int rest = num - total_times*TOTAL_LEN;
 		if(rest) {
 
-
+/*
 			pthread_mutex_lock(&mtx[op]);
 			int start = sbuf[op]->tail;
 
@@ -817,22 +864,47 @@ void *func(void *data)
 				sbuf[op]->bottom = start;
 				sbuf[op]->tail = 0;
 				pthread_cond_signal(&cond[op]);
+
+				printf("op#####= %d, rest##### = %d bottom = %d\n", op, rest, start);
 			}
 			printf("rest@@@@@@@@@@@@@ op = %d, tail = %d, head = %d\n", op, sbuf[op]->tail, sbuf[op]->head);
 			//pthread_cond_signal(&cond[op]);
+			pthread_mutex_unlock(&mtx[op]);
+*/
 
-			start = sbuf[op]->tail;
-			if(start < sbuf[op]->head) {
-				while(start+rest > sbuf[op]->head) {
+
+
+			int tail;
+			pthread_mutex_lock(&mtx[op]);
+			tail = sbuf[op]->tail;
+			if(tail < sbuf[op]->head) {
+				while(tail+rest >= sbuf[op]->head) {
 					printf("@@@@@@@@@@@@@ wait op = %d\n", op);
 					pthread_cond_signal(&cond[op]);
-					pthread_cond_signal(&cond[(op+1)%2]);
+					//pthread_cond_signal(&cond[(op+1)%2]);
 					pthread_cond_wait(&cond[op], &mtx[op]);
 					break;
 				}
 			}
-			start += rest;
-			sbuf[op]->tail = start;
+			pthread_mutex_unlock(&mtx[op]);
+
+			pthread_mutex_lock(&mtx[op]);
+			tail = sbuf[op]->tail;
+			if(tail + rest >= TOTAL_DATA_SIZE) {
+				sbuf[op]->bottom = tail;
+				sbuf[op]->tail = 0;
+				pthread_cond_signal(&cond[op]);
+
+				printf("op#####= %d, rest##### = %d bottom = %d\n", op, rest, tail);
+			}
+			printf("rest@@@@@@@@@@@@@ op = %d, tail = %d, head = %d\n", op, sbuf[op]->tail, sbuf[op]->head);
+			//pthread_mutex_unlock(&mtx[op]);
+
+
+			//pthread_mutex_lock(&mtx[op]);
+			tail = sbuf[op]->tail;
+			tail += rest;
+			sbuf[op]->tail = tail;
 			pthread_cond_signal(&cond[op]);
 			pthread_mutex_unlock(&mtx[op]);
 
@@ -962,6 +1034,9 @@ void *func(void *data)
 	pthread_cond_signal(&cond[op]);
 	pthread_mutex_unlock(&mtx[op]);
 
+
+	pthread_barrier_wait(&barr);
+
 //	if(op == 0) {
 //		pthread_cancel(trans_thread);
 //		pthread_join(trans_thread, NULL);
@@ -1017,6 +1092,9 @@ int main(int argc , char *argv[])
 	ret = pthread_attr_setschedpolicy(&tattr2, SCHED_RR);
 
 
+	pthread_barrier_init(&barr, NULL, 2);
+
+
 
 	pthread_t appThread[2];
 
@@ -1025,6 +1103,9 @@ int main(int argc , char *argv[])
 	int port_num2 = port_num+11;
 
 	pthread_create(&appThread[1], &tattr2, func, &port_num2);
+
+
+
 
 
 

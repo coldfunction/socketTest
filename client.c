@@ -204,6 +204,10 @@ void *trans_func(void *data)
 {
 	int op = 0;
 	while(1) {
+
+
+		send_garbage(op); //cocotion test
+
 		op = (op+1)%2;
 
 		char *buf  = sbuf[op]->buf;
@@ -246,6 +250,7 @@ void *trans_func(void *data)
 			if(sbuf[op]->op_switch) {
 				pthread_mutex_unlock(&mtx[op]);
 				op = (op+1)%2;
+				stop_send_garbage(op); //cocotion test
 				sockfd = sbuf[op]->sockfd;
 				buf  = sbuf[op]->buf;
 				pthread_mutex_lock(&mtx[op]);
@@ -575,6 +580,8 @@ void *trans_func(void *data)
 			printf("want go next... op = %d, head = %d, tail = %d, time = %d\n", op, sbuf[op]->head, sbuf[op]->tail, timer);
 			}
 */
+
+		stop_send_garbage((op+1)%2); //cocotion test
 
 	}
 }

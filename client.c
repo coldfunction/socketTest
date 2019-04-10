@@ -164,7 +164,9 @@ void *garbage_send_func(void *data)
 
 		pthread_mutex_lock(&mtx2[op]);
 		do {
+#ifdef DEBUG
             printf("op = %d, wait to send garbage!!!!\n", op);
+#endif
 			pthread_mutex_lock(&mtx4[op]);
 			tbuf->kick = 0;
 			pthread_cond_signal(&cond4[op]);
@@ -203,12 +205,16 @@ while (tbuf->stop_send_garbage == 0) {
 
 			offset += ret;
 	    	len = len - ret;
+#ifdef DEBUG
 			printf("op = %d, start already send garbage len = %d sockfd = %d\n", op, offset, sockfd);
 			printf("op = %d, start rest send garbage len = %d\n", op, len);
+#endif
 		} while (len);
 }
 
+#ifdef DEBUG
 		printf("after op = %d !!!!!!!!!!!!!\n", op);
+#endif
 	}
 
 	printf("send okokokokokokok garbage_send_func\n");
@@ -235,8 +241,9 @@ void stop_send_garbage(int op)
 	sbuf[op]->stop_send_garbage = 1;
 	pthread_mutex_unlock(&mtx2[op]);
 
+#ifdef DEBUG
 	printf("in stop_send_garbage now op = %d before recv\n", op);
-
+#endif
 	pthread_mutex_lock(&mtx4[op]);
 
 	while(sbuf[op]->kick) {
@@ -247,8 +254,10 @@ void stop_send_garbage(int op)
 	//while(sbuf[op]->kick);
 
 
+#ifdef DEBUG
 	int ret = 0;
 	printf("in stop_send_garbage now op = %d after recv and recv %d bytes\n", op, ret);
+#endif
 }
 
 void *trans_func(void *data)
@@ -300,7 +309,7 @@ void *trans_func(void *data)
 
 */
 
-/*
+
 			if(sbuf[op]->op_switch) {
 				pthread_mutex_unlock(&mtx[op]);
 				op = (op+1)%2;
@@ -311,27 +320,27 @@ void *trans_func(void *data)
 				continue;
 
 			}
-*/
 
 
 
-		//	send_garbage(op);
+
+			send_garbage(op);
 			//garbage_send_func(sbuf[op]);
 			//garbage_send_func2(sbuf[op]);
-			pthread_mutex_unlock(&mtx[op]);
-			garbage_send_func2(sbuf[op]);
-			usleep(100);
-
+//			pthread_mutex_unlock(&mtx[op]);
+//			garbage_send_func2(sbuf[op]);
+//			usleep(100);
+/*
 			op = (op+1)%2;
 			sockfd = sbuf[op]->sockfd;
 			buf  = sbuf[op]->buf;
 			pthread_mutex_lock(&mtx[op]);
 			//usleep(50);
 			continue;
-
+*/
 
 			pthread_cond_wait(&cond[op], &mtx[op]);
-//			stop_send_garbage(op);
+			stop_send_garbage(op);
 //			pthread_mutex_unlock(&mtx[op]);
 
 
@@ -381,7 +390,9 @@ void *trans_func(void *data)
 
 */
 			//pthread_cond_signal(&cond[op]);
+#ifdef DEBUG
 			printf("after wait op = %d, head = %d, tail = %d\n", op, sbuf[op]->head, sbuf[op]->tail);
+#endif
 		//stop_send_garbage(op);
     	//char receiveMessage[100] = {};
 		//recv(sockfd,receiveMessage,sizeof(receiveMessage),0);

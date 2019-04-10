@@ -9,6 +9,8 @@
 #include <pthread.h>
 
 
+//#define DEBUG 1
+
 #define TOTAL_LEN (64*1024)
 //#define TOTAL_LEN (512*1024)
 #define TOTAL_DATA_SIZE (4*1024*1024)
@@ -139,9 +141,9 @@ int main(int argc , char *argv[])
 
 
 			len = TOTAL_LEN;
-
+//#ifdef DEBUG
 			printf("this time len is num = %d ########################\n", num);
-
+//#endif
 
 			if(total < TOTAL_LEN) {
 				len = total;
@@ -171,7 +173,9 @@ int main(int argc , char *argv[])
 //
 					do {
 						ret = recv(forClientSockfd,inputBuffer,1,0);
+#ifdef DEBUG
 						printf("cocotion first head recv len = %d\n", ret);
+#endif
 					} while (ret != 1);
 					head = 0;
 
@@ -180,13 +184,17 @@ int main(int argc , char *argv[])
 					int myoffset = 0;
 					do {
 						ret = recv(forClientSockfd,mylen+myoffset,sublen,0);
+#ifdef DEBUG
 						printf("cocococo ret = %d get \n", ret);
+#endif
 						sublen-=ret;
 						myoffset+=ret;
 					} while (sublen) ;
 
 					len = *(int*)mylen;
+#ifdef DEBUG
 					printf("cocococo len = %d get \n", len);
+#endif
 					if(len == 0) exit(1);
 					/*
 					ret = recv(forClientSockfd,&len,4,0);
@@ -200,10 +208,13 @@ int main(int argc , char *argv[])
 
 					if(ret == -1) {
 						printf("@@@error error recv cocotion test offset = %d\n", offset);
+
 						exit(1);
 					}
 					if(inputBuffer[0]) {
+#ifdef DEBUG
 						printf("!!!!!!Garbage packet!!!!!Please drop it!!!!!\n");
+#endif
 						garbage = 1;
 					//	pre_len = num;
 					//total++;
@@ -212,14 +223,18 @@ int main(int argc , char *argv[])
 						//exit(1);
 					}
 					if(garbage) {
+#ifdef DEBUG
 						printf("!!!!!!Garbage packet!!!!!Please drop it!!!!!\n");
+#endif
 						int glen = TOTAL_LEN;
 						int goffset = 0;
 						do {
 							ret = recv(forClientSockfd,inputBuffer+1+goffset,glen,0);
 							glen -= ret;
 							goffset += ret;
+#ifdef DEBUG
 							printf("cocotion test already recv goffset = %d\n", goffset);
+#endif
 						} while (glen);
 						//len = total = TOTAL_LEN;
 						head = 1;
@@ -254,17 +269,21 @@ int main(int argc , char *argv[])
 				offset += ret;
 				len = len - ret;
 
+#ifdef DEBUG
 				printf("cocotion total = %d\n", total);
 				printf("cocotion offset = %d\n", offset);
 
 				printf("cocotion recv len = %d\n", ret);
 				printf("cocotion rest len = %d\n", len);
-
+#endif
 				if(len == 0) {
 					total-=offset;
 					//total+=1;
 					//total+=garbage;
+
+#ifdef DEBUG
 					printf("cocotion test rest total = %d\n", total);
+#endif
 					if(total == 0)
 						break;
 					//else {
@@ -281,7 +300,9 @@ int main(int argc , char *argv[])
 					offset = 0;
 				}
 			}
+#ifdef DEBUG
 			printf("cocotion test ok I recv all\n");
+#endif
 
 			//if(garbage) continue;
 //			int i;
@@ -298,7 +319,9 @@ int main(int argc , char *argv[])
 			do {
         		ret = send(forClientSockfd,message,1,0);
 			} while (ret != 1);
+#ifdef DEBUG
 			printf("cocotion test ok go next\n");
+#endif
         //printf("Get:%s\n",inputBuffer);
 //        printf("Get:%s\n",mbuf[1]);
  //       printf("Get:%c\n",mbuf[1][0]);

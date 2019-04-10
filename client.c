@@ -18,6 +18,9 @@
 #include <fcntl.h>
 
 
+//#define DEBUG 1
+
+
 #define TOTAL_LEN (64*1024)
 //#define TOTAL_LEN (512*1024)
 #define TOTAL_DATA_SIZE (4*1024*1024)
@@ -104,7 +107,9 @@ void garbage_send_func2(void *data) {
 	int sockfd = tbuf->sockfd;
 
 	int op = tbuf->op;
+#ifdef DEBUG
     printf("wait op = %d, sockfd = %d\n", op, sockfd);
+#endif
 	int buf_size = 65537;
 	char *buf = malloc(buf_size);
 	memset(&buf[0], 1, 1);
@@ -134,8 +139,10 @@ void garbage_send_func2(void *data) {
 
 		offset += ret;
 	    len = len - ret;
+#ifdef DEBUG
 		printf("op = %d, start already send garbage len = %d sockfd = %d\n", op, offset, sockfd);
 		printf("op = %d, start rest send garbage len = %d\n", op, len);
+#endif
 	} while (len);
 
 }
@@ -146,7 +153,9 @@ void *garbage_send_func(void *data)
 	int sockfd = tbuf->sockfd;
 
 	int op = tbuf->op;
+#ifdef DEBUG
     printf("wait op = %d, sockfd = %d\n", op, sockfd);
+#endif
 	int buf_size = 65537;
 	char *buf = malloc(buf_size);
 	memset(&buf[0], 1, 1);
@@ -208,7 +217,9 @@ while (tbuf->stop_send_garbage == 0) {
 
 void send_garbage(int op)
 {
+#ifdef DEBUG
     printf("try to send garbage!!!!\n");
+#endif
 	pthread_mutex_lock(&mtx2[op]);
 	sbuf[op]->stop_send_garbage = 0;
 	pthread_cond_signal(&cond2[op]);
@@ -269,7 +280,9 @@ void *trans_func(void *data)
 */
 		while (sbuf[op]->head == sbuf[op]->tail) {
 			if(sbuf[op]->bottom) break;
+#ifdef DEBUG
 			printf("wait op = %d, head = %d, tail = %d\n", op, sbuf[op]->head, sbuf[op]->tail);
+#endif
 
 /*
 			pthread_mutex_lock(&mtx[(op+1)%2]);
@@ -307,7 +320,7 @@ void *trans_func(void *data)
 			//garbage_send_func2(sbuf[op]);
 			pthread_mutex_unlock(&mtx[op]);
 			garbage_send_func2(sbuf[op]);
-			//usleep(50);
+			usleep(100);
 
 			op = (op+1)%2;
 			sockfd = sbuf[op]->sockfd;
@@ -396,7 +409,9 @@ void *trans_func(void *data)
 		if(bottom) {
 			tail = bottom;
 			update_head = 1;
+#ifdef DEBUG
 			printf("op = %d, bottom = %d\n", op, bottom);
+#endif
 		}
 
 		pthread_mutex_unlock(&mtx[op]);
@@ -486,16 +501,19 @@ void *trans_func(void *data)
 						sublen -= ret;
 						myoffset += ret;
 					} while (sublen) ;
+#ifdef DEBUG
 					printf("cocotion op = %d, send len = %d, ret = %d\n",op,  len, ret);
+#endif
                 }
 //				ret = send(sockfd, ptr + offset -1 , len,0);
 
 
 				ret = send(sockfd, buf+head + offset -1 , len,0);
 
+#ifdef DEBUG
 
 			printf("       cocotion test op = %d, ret = %d, offset = %d len = %d\n", op, ret, offset, len);
-
+#endif
 				//				printf("send op = %d\n", op);
 //				pthread_cond_signal(&cond3);
 //				pthread_mutex_unlock(&mtx3);
@@ -552,8 +570,9 @@ void *trans_func(void *data)
 					//if(ret == -1)
 						//continue;
 					offset += 1;
+#ifdef DEBUG
 					printf("cocotion rest = %d send\n", rest);
-
+#endif
 
 					//ret = send(sockfd, &rest, 4, 0);
 
@@ -572,18 +591,21 @@ void *trans_func(void *data)
 						myoffset += ret;
 					} while (sublen) ;
 
+#ifdef DEBUG
 					printf("cocotion op = %d, send rest len = %d, ret = %d\n", op, rest, ret);
-                }
+#endif
+				}
 //				while ( ret = send(sockfd, buf+head + offset -1 ,rest,0) == -1);
 				ret = send(sockfd, buf+head + offset -1 ,rest,0);
 				if(ret == -1)
 					exit(1);
 				//	continue;
 
+#ifdef DEBUG
 
                 printf("        cocotion test rest op = %d, ret = %d, offset = %d len = %d\n", op, ret, offset, rest);
 //				exit(1);
-
+#endif
 
 //				printf("send op rest= %d\n", op);
 //				pthread_cond_signal(&cond3);
@@ -602,7 +624,9 @@ void *trans_func(void *data)
 		sbuf[op]->head = head;
 		pthread_mutex_unlock(&mtx[op]);
 
+#ifdef DEBUG
 		printf("~~~~op = %d, head= %d, tail = %d\n", op, head, sbuf[op]->tail);
+#endif
 /*
 		pthread_mutex_lock(&mtx[op]);
 		if(update_head) {
@@ -824,8 +848,10 @@ void *func(void *data)
 				unsigned int timer = 1000000 * (end2.tv_sec-start2.tv_sec)+ end2.tv_usec-start2.tv_usec;
 				printf("********************now already pass %d\n", timer);
 			}
-*/			printf("@@@@ op = %d, fucking num = %d\n", op, num);
-
+*/
+#ifdef DEBUG
+			printf("@@@@ op = %d, fucking num = %d\n", op, num);
+#endif
 			//int start = sbuf[op]->tail;
 
 			len = TOTAL_LEN;
@@ -855,7 +881,9 @@ void *func(void *data)
 			tail = sbuf[op]->tail;
 			if(tail < sbuf[op]->head) {
 				while(tail+len >= sbuf[op]->head) {
+#ifdef DEBUG
 					printf("@@@@@@@@@@@@@ wait op = %d\n", op);
+#endif
 					pthread_cond_signal(&cond[op]);
 					//pthread_cond_signal(&cond[(op+1)%2]);
 					pthread_cond_wait(&cond[op], &mtx[op]);
@@ -872,12 +900,16 @@ void *func(void *data)
 				sbuf[op]->tail = 0;
 				pthread_cond_signal(&cond[op]);
 
+#ifdef DEBUG
 				printf("op#####= %d, total_len#####, bottom = %d\n", op, tail);
+#endif
 			}
 			//else
 			//	sbuf[op]->tail = start;
 
+#ifdef DEBUG
 			printf("@@@@@@@@@@@@@ op = %d, tail = %d, head = %d\n", op, sbuf[op]->tail, sbuf[op]->head);
+#endif
 			//pthread_cond_signal(&cond[op]);
 			//pthread_mutex_unlock(&mtx[op]);
 
@@ -897,7 +929,9 @@ void *func(void *data)
 
 
 			mynumcount+=len;
+#ifdef DEBUG
 			printf("@@@@@@ now op = %d, total produce num = %d\n", op, mynumcount);
+#endif
 /*
 			pthread_mutex_lock(&mtx[op]);
 
@@ -942,7 +976,9 @@ void *func(void *data)
 			tail = sbuf[op]->tail;
 			if(tail < sbuf[op]->head) {
 				while(tail+rest >= sbuf[op]->head) {
+#ifdef DEBUG
 					printf("@@@@@@@@@@@@@ wait op = %d\n", op);
+#endif
 					pthread_cond_signal(&cond[op]);
 					//pthread_cond_signal(&cond[(op+1)%2]);
 					pthread_cond_wait(&cond[op], &mtx[op]);
@@ -958,9 +994,13 @@ void *func(void *data)
 				sbuf[op]->tail = 0;
 				pthread_cond_signal(&cond[op]);
 
+#ifdef DEBUG
 				printf("op#####= %d, rest##### = %d bottom = %d\n", op, rest, tail);
+#endif
 			}
+#ifdef DEBUG
 			printf("rest@@@@@@@@@@@@@ op = %d, tail = %d, head = %d\n", op, sbuf[op]->tail, sbuf[op]->head);
+#endif
 			//pthread_mutex_unlock(&mtx[op]);
 
 
@@ -973,8 +1013,9 @@ void *func(void *data)
 
 
 			mynumcount+=rest;
+#ifdef DEBUG
 			printf("@@@@@@ now op = %d, total produce num = %d\n", op, mynumcount);
-
+#endif
 
 
 
@@ -1022,7 +1063,9 @@ void *func(void *data)
 */
 //cocotion fucking test
 //		if(op == 0)
+#ifdef DEBUG
 			printf("okok I recv now op = %d, head = %d, tail = %d, num = %d\n", op, sbuf[op]->head, sbuf[op]->tail, num);
+#endif
 		//recv(sockfd,receiveMessage,sizeof(receiveMessage),0);
 		int ret;
 		do {

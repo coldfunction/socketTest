@@ -110,8 +110,8 @@ void garbage_send_func2(void *data) {
 #ifdef DEBUG
     printf("wait op = %d, sockfd = %d\n", op, sockfd);
 #endif
-	int buf_size = 65537;
-//	int buf_size = 65;
+//	int buf_size = 65537;
+	int buf_size = 2;
 	char *buf = malloc(buf_size);
 	memset(&buf[0], 1, 1);
 
@@ -340,7 +340,7 @@ void *trans_func(void *data)
 //			garbage_send_func2(sbuf[op]);
 			pthread_mutex_unlock(&mtx[op]);
 			garbage_send_func2(sbuf[op]);
-			usleep(100);
+			usleep(1);
 
 			op = (op+1)%2;
 			sockfd = sbuf[op]->sockfd;

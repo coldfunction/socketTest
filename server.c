@@ -179,11 +179,13 @@ int main(int argc , char *argv[])
 					} while (ret != 1);
 					head = 0;
 
-					char mylen[4];
+					//char mylen[4];
+					int mylen = 0;
 					int sublen = 4;
 					int myoffset = 0;
 					do {
-						ret = recv(forClientSockfd,mylen+myoffset,sublen,0);
+						//ret = recv(forClientSockfd,mylen+myoffset,sublen,0);
+						ret = recv(forClientSockfd,(char*)(&mylen)+myoffset,sublen,0);
 #ifdef DEBUG
 						printf("cocococo ret = %d get \n", ret);
 #endif
@@ -191,7 +193,8 @@ int main(int argc , char *argv[])
 						myoffset+=ret;
 					} while (sublen) ;
 
-					len = *(int*)mylen;
+					//len = *(int*)mylen;
+					len = mylen;
 #ifdef DEBUG
 					printf("cocococo len = %d get \n", len);
 #endif
@@ -226,7 +229,8 @@ int main(int argc , char *argv[])
 #ifdef DEBUG
 						printf("!!!!!!Garbage packet!!!!!Please drop it!!!!!\n");
 #endif
-						int glen = TOTAL_LEN;
+						//int glen = TOTAL_LEN;
+						int glen = len;
 						int goffset = 0;
 						do {
 							ret = recv(forClientSockfd,inputBuffer+1+goffset,glen,0);

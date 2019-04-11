@@ -111,6 +111,7 @@ void garbage_send_func2(void *data) {
     printf("wait op = %d, sockfd = %d\n", op, sockfd);
 #endif
 	int buf_size = 65537;
+//	int buf_size = 65;
 	char *buf = malloc(buf_size);
 	memset(&buf[0], 1, 1);
 
@@ -127,15 +128,18 @@ void garbage_send_func2(void *data) {
 
 			int sublen = 4;
 			int myoffset = 0;
-			int *plen;
-			plen = &len;
+			int plen;
+			plen = len;
 			do {
-				ret = send(sockfd, (char*)plen+myoffset, sublen, 0);
+				ret = send(sockfd, (char*)&plen+myoffset, sublen, 0);
 				sublen -= ret;
 				myoffset += ret;
 			} while (sublen);
+#ifdef DEBUG
+			printf("####op = %d, ret = %d, already send num plen = %d\n", op, ret, plen);
+#endif
 		}
-		ret = send(sockfd,buf + offset -1 , len,0);
+		ret = send(sockfd,buf + offset-1 , len,0);
 
 		offset += ret;
 	    len = len - ret;

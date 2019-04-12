@@ -369,7 +369,7 @@ void *trans_func(void *data)
 
 			}
 
-
+/*
 			sbuf[op]->wait_times++;
 			if(sbuf[op]->wait_times == 2)
 			{
@@ -379,7 +379,7 @@ void *trans_func(void *data)
 				buf  = sbuf[op]->buf;
 				continue;
 			}
-
+*/
 //			send_garbage(op);
 			//garbage_send_func(sbuf[op]);
 //			garbage_send_func2(sbuf[op]);
@@ -413,7 +413,7 @@ void *trans_func(void *data)
 //		good = sbuf[op]->good;
 //		printf("shit percentage = %f\n", (float)shit/(shit+good));
 
-		sbuf[op]->is_last_garbage = 1;
+//		sbuf[op]->is_last_garbage = 1;
 /*
 		struct sched_param param;
 		//param.sched_priority = 99;
@@ -426,12 +426,12 @@ void *trans_func(void *data)
 
 		//usleep(50);
 //		garbage_send_func2(sbuf[op]);
-		usleep(1);
+//		usleep(1);
 		//
 
 
 //		pthread_mutex_lock(&mtx[op]);
-		continue;
+//		continue;
 
 
 
@@ -439,13 +439,13 @@ void *trans_func(void *data)
 
 			garbage_send_func2(sbuf[op]);
 			sbuf[op]->is_last_garbage = 1;
-			//usleep(1);
+			usleep(1);
 
 			//printf("op = %d, full full full!\n", op);
 			op = (op+1)%2;
 			sockfd = sbuf[op]->sockfd;
 			buf  = sbuf[op]->buf;
-			pthread_mutex_lock(&mtx[op]);
+//			pthread_mutex_lock(&mtx[op]);
 			//usleep(50);
 			continue;
 
@@ -522,13 +522,13 @@ void *trans_func(void *data)
 			}
 		}
 */
-
+/*
 		if(sbuf[op]->is_last_garbage == 0) {
 			//usleep(50);
 		//	garbage_send_func2(sbuf[op]);
 			usleep(1);
 		}
-
+*/
 		sbuf[op]->is_last_garbage = 0;
 		sbuf[op]->wait_times = 0;
 

@@ -4,9 +4,9 @@ gcc -o server server.c -lpthread
 gcc -o client client.c -lpthread
 sleep 1
 
-sshpass -p xxxx ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; killall server; gnome-terminal -x bash -c './server 5566; read' " &
+sshpass -p ppcb5994 ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; killall server; gnome-terminal -x bash -c './server 5566; read' " &
 sleep 1
-sshpass -p xxxx ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; gnome-terminal -x bash -c './server 5577; read' " &
+sshpass -p ppcb5994 ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; gnome-terminal -x bash -c './server 5577; read' " &
 
 sleep 1
 ./client 5566

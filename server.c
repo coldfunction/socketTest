@@ -11,9 +11,11 @@
 
 //#define DEBUG 1
 
+//#define TOTAL_LEN (64*1024)
 #define TOTAL_LEN (64*1024)
 //#define TOTAL_LEN (512*1024)
-#define TOTAL_DATA_SIZE (4*1024*1024)
+//#define TOTAL_DATA_SIZE (4*1024*1024)
+#define TOTAL_DATA_SIZE (128*1024*1024)
 //#define TOTAL_DATA_SIZE (64*1024*1024)
 #define META_HEAD (32)
 

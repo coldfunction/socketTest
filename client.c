@@ -82,6 +82,9 @@ struct sendBuf
 	int gonext;
 	int wait_times;
 
+	int real_trans_bytes;
+
+
 	char *buf;
 
 };
@@ -126,8 +129,14 @@ void garbage_send_func2(void *data) {
 //	int buf_size = 65537;
 //	int buf_size = 32769;
 //	int buf_size = 12769;
+//	int buf_size = 8192;
+//	int buf_size = 4096;
+//	int buf_size = 2048;
+//	int buf_size = 1024;
+//	int buf_size = 512;
 	int buf_size = 2;
 //	int buf_size = 128;
+//	int buf_size = 256;
 	char *buf = malloc(buf_size);
 	memset(&buf[0], 1, 1);
 
@@ -342,7 +351,7 @@ void *trans_func(void *data)
 
 
 */
-			pthread_mutex_lock(&mtx[op]);
+//			pthread_mutex_lock(&mtx[op]);
 			if(sbuf[op]->gonext == 1) {
 				garbage_send_func2(sbuf[op]);
 				usleep(1);
@@ -355,7 +364,7 @@ void *trans_func(void *data)
 				buf  = sbuf[op]->buf;
 				continue;
 			}
-			pthread_mutex_unlock(&mtx[op]);
+//			pthread_mutex_unlock(&mtx[op]);
 
 
 			if(sbuf[op]->op_switch) {
@@ -440,6 +449,10 @@ void *trans_func(void *data)
 			garbage_send_func2(sbuf[op]);
 			sbuf[op]->is_last_garbage = 1;
 			usleep(1);
+
+
+			sbuf[op]->real_trans_bytes+=6;
+
 
 			//printf("op = %d, full full full!\n", op);
 			op = (op+1)%2;
@@ -657,6 +670,8 @@ void *trans_func(void *data)
 			len = TOTAL_LEN;
 
 			head += len;
+
+			sbuf[op]->real_trans_bytes+=(len+5);
 		}
 
 //        munmap(ptr+1, TOTAL_LEN);
@@ -749,6 +764,7 @@ void *trans_func(void *data)
 
 			head = head + offset-1;
 			//head-=1;
+			sbuf[op]->real_trans_bytes+=(offset-1+5);
 		}
 
 //        munmap(ptr+1, TOTAL_LEN);
@@ -948,10 +964,11 @@ void *func(void *data)
 		usleep(runningtime);
 
 
-		pthread_mutex_lock(&mtx[op]);
+//		pthread_mutex_lock(&mtx[op]);
 		sbuf[op]->gonext = 0;
-		pthread_mutex_unlock(&mtx[op]);
+//		pthread_mutex_unlock(&mtx[op]);
 
+		sbuf[op]->real_trans_bytes = 0;
 
 		gettimeofday(&start,NULL);
 		if(op == 0) {
@@ -1029,14 +1046,14 @@ void *func(void *data)
 			pthread_mutex_lock(&mtx[op]);
 			tail = sbuf[op]->tail;
 			if(tail < sbuf[op]->head) {
-				while(tail+len >= sbuf[op]->head) {
+				if(tail+len >= sbuf[op]->head) {
 #ifdef DEBUG
 					printf("@@@@@@@@@@@@@ wait op = %d\n", op);
 #endif
-					pthread_cond_signal(&cond[op]);
+					//pthread_cond_signal(&cond[op]);
 					//pthread_cond_signal(&cond[(op+1)%2]);
 					pthread_cond_wait(&cond[op], &mtx[op]);
-					break;
+					//break;
 				}
 			}
 			pthread_mutex_unlock(&mtx[op]);
@@ -1047,7 +1064,7 @@ void *func(void *data)
 			if(tail + TOTAL_LEN2 >= TOTAL_DATA_SIZE) {
 				sbuf[op]->bottom = tail;
 				sbuf[op]->tail = 0;
-				pthread_cond_signal(&cond[op]);
+				//pthread_cond_signal(&cond[op]);
 
 #ifdef DEBUG
 				printf("op#####= %d, total_len#####, bottom = %d\n", op, tail);
@@ -1128,7 +1145,7 @@ void *func(void *data)
 #ifdef DEBUG
 					printf("@@@@@@@@@@@@@ wait op = %d\n", op);
 #endif
-					pthread_cond_signal(&cond[op]);
+					//pthread_cond_signal(&cond[op]);
 					//pthread_cond_signal(&cond[(op+1)%2]);
 					pthread_cond_wait(&cond[op], &mtx[op]);
 					break;
@@ -1141,7 +1158,7 @@ void *func(void *data)
 			if(tail + rest >= TOTAL_DATA_SIZE) {
 				sbuf[op]->bottom = tail;
 				sbuf[op]->tail = 0;
-				pthread_cond_signal(&cond[op]);
+				//pthread_cond_signal(&cond[op]);
 
 #ifdef DEBUG
 				printf("op#####= %d, rest##### = %d bottom = %d\n", op, rest, tail);
@@ -1223,9 +1240,9 @@ void *func(void *data)
 		//pthread_mutex_lock(&mtx[op]);
 		//pthread_mutex_unlock(&mtx[op]);
 
-		pthread_mutex_lock(&mtx[op]);
+//		pthread_mutex_lock(&mtx[op]);
 		sbuf[op]->gonext = 1;
-		pthread_mutex_unlock(&mtx[op]);
+//		pthread_mutex_unlock(&mtx[op]);
 
 
 		gettimeofday(&end,NULL);
@@ -1251,6 +1268,12 @@ void *func(void *data)
 				printf("end====@@@@===============\n");
 			}
 		}
+*/
+/*
+		printf("op = %d, what I think trans byte = %d\n", op, num);
+		printf("op = %d, real trans byte = %d\n", op, sbuf[op]->real_trans_bytes);
+		printf("op = %d, what I think transfer rate = %ld\n", op, num/timer);
+		printf("op = %d, real transfer rate = %ld\n", op, sbuf[op]->real_trans_bytes/timer);
 */
 
 		fscanf(file2, "%d", &runningtime);

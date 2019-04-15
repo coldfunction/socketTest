@@ -1141,14 +1141,14 @@ void *func(void *data)
 			pthread_mutex_lock(&mtx[op]);
 			tail = sbuf[op]->tail;
 			if(tail < sbuf[op]->head) {
-				while(tail+rest >= sbuf[op]->head) {
+				if(tail+rest >= sbuf[op]->head) {
 #ifdef DEBUG
 					printf("@@@@@@@@@@@@@ wait op = %d\n", op);
 #endif
 					//pthread_cond_signal(&cond[op]);
 					//pthread_cond_signal(&cond[(op+1)%2]);
 					pthread_cond_wait(&cond[op], &mtx[op]);
-					break;
+					//break;
 				}
 			}
 			pthread_mutex_unlock(&mtx[op]);

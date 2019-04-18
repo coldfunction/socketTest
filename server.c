@@ -122,6 +122,7 @@ int main(int argc , char *argv[])
 		//FILE * file;
 		file = fopen( "inputData.txt" , "r");
 		if(!file){
+			printf("open file fail\n");
 			free(inputBuffer);
 			close(sockfd);
 			fclose(file);

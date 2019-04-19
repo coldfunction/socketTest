@@ -60,7 +60,10 @@ unsigned int totalcount = 0;
 unsigned int totalwait = 0;
 
 
-int MAXNUM = 7000000;
+//int MAXNUM = 5000000;
+#define MAXNUM 5000000
+//int MAXNUM = 100;
+unsigned int cycle = 0;
 
 
 struct sendBuf
@@ -73,7 +76,7 @@ struct sendBuf
 	int sockfd;
 	int sockfd2;
 	int kick;
-	int stop_send_garbage;
+	volatile int stop_send_garbage;
 
 	int op;
 	int op_switch;
@@ -87,10 +90,10 @@ struct sendBuf
 
 //	pthread_t producer_t;
 	pid_t pid;
-	volatile int gonext;
+	int gonext;
 	int wait_times;
 
-	int real_trans_bytes;
+	volatile int real_trans_bytes;
 	int real_num;
 
 	int garbage_num;
@@ -206,7 +209,9 @@ void *garbage_send_func(void *data)
 #ifdef DEBUG
     printf("wait op = %d, sockfd = %d\n", op, sockfd);
 #endif
-	int buf_size = 65537;
+//	int buf_size = 65537;
+//	int buf_size = 2;
+	int buf_size = 128;
 	char *buf = malloc(buf_size);
 	memset(&buf[0], 1, 1);
 
@@ -229,7 +234,9 @@ void *garbage_send_func(void *data)
 		} while (tbuf->stop_send_garbage);
 		pthread_mutex_unlock(&mtx2[op]);
 
+pthread_mutex_lock(&mtx2[op]);
 while (tbuf->stop_send_garbage == 0) {
+pthread_mutex_unlock(&mtx2[op]);
 		int len = buf_size-1;
 		int offset = 0;
 
@@ -260,7 +267,12 @@ while (tbuf->stop_send_garbage == 0) {
 			printf("op = %d, start rest send garbage len = %d\n", op, len);
 #endif
 		} while (len);
+
+  //      sbuf[op]->real_trans_bytes+=(len+5);
+//    usleep(10);
+pthread_mutex_lock(&mtx2[op]);
 }
+pthread_mutex_unlock(&mtx2[op]);
 
 #ifdef DEBUG
 		printf("after op = %d !!!!!!!!!!!!!\n", op);
@@ -287,6 +299,8 @@ void send_garbage(int op)
 
 void stop_send_garbage(int op)
 {
+    if(sbuf[op]->stop_send_garbage)
+        return;
 	pthread_mutex_lock(&mtx2[op]);
 	sbuf[op]->stop_send_garbage = 1;
 	pthread_mutex_unlock(&mtx2[op]);
@@ -336,7 +350,10 @@ void *trans_func(void *data)
 			head = sbuf[op]->head;
 			pthread_mutex_unlock(&mtx[op]);
 
-//			printf("op start = %d, head is %d, tail is %d\n", op, head, tail);
+#ifdef DEBUG
+			printf("op start = %d, head is %d, tail is %d\n", op, head, tail);
+			printf("op start = %d, ghead is %d, gtail is %d\n", op, sbuf[op]->garbage_head, sbuf[op]->garbage_tail);
+#endif
 			if(head == tail) {
 				continue;
 			}
@@ -346,6 +363,10 @@ void *trans_func(void *data)
 			head = sbuf[op]->garbage_head;
 
 		}
+
+        //stop_send_garbage(0);
+        //stop_send_garbage(1);
+
 
 //		printf("$$$$@@@cocotion op = %d, head = %d, tail = %d\n", op, head, tail);
 
@@ -593,13 +614,13 @@ void *trans_func(void *data)
 #ifdef DEBUG
 		printf("~~~~op = %d, head= %d, real tail = %d, real head = %d\n", op, head, sbuf[op]->tail, sbuf[op]->head);
 		printf("~~~~op = %d, head= %d, now tail = %d, garbage state = %d\n", op, head,  tail, sbuf[op]->garbage_state);
-		printf("~~~~op = %d, real trans bytes = %d, MAXNUM = %d\n", op, sbuf[op]->real_trans_bytes, MAXNUM);
+		printf("~~~~op = %d, real trans bytes = %d, MAXNUM = %d\n", op, sbuf[op]->real_trans_bytes, sbuf[op]->real_num);
 #endif
 
 
 		if((!sbuf[op]->garbage_state) && tail == head) {
-			if(sbuf[op]->real_trans_bytes < MAXNUM) {
-				sbuf[op]->garbage_num = MAXNUM-sbuf[op]->real_trans_bytes;
+			if(tail < sbuf[op]->real_num) {
+				sbuf[op]->garbage_num = sbuf[op]->real_num-tail;
 #ifdef DEBUG
 				printf("op = %d, garbage_num is %d\n", op, sbuf[op]->garbage_num);
 #endif
@@ -622,20 +643,17 @@ void *trans_func(void *data)
 			printf("op = %d, garbage end head is %d\n", op, head);
 #endif
 			sbuf[op]->garbage_state = 0;
-			pthread_mutex_lock(&mtx[op]);
+
+
+/*
+            pthread_mutex_lock(&mtx2[op]);
 			sbuf[op]->gonext = 1;
-			pthread_cond_signal(&cond[op]);
-			pthread_mutex_unlock(&mtx[op]);
+			pthread_cond_signal(&cond2[op]);
+			pthread_mutex_unlock(&mtx2[op]);
+*/
 
 //			printf("cocotion test real trans_bytes = %d\n", sbuf[op]->real_trans_bytes);
 			//sbuf[op]->real_trans_bytes = 0;
-
-/*
-			pthread_mutex_lock(&mtx[op]);
-			if(sbuf[op]->head != 0)
-				sbuf[op]->head = sbuf[op]->tail = 0;
-			pthread_mutex_unlock(&mtx[op]);
-*/
 		}
 
 
@@ -741,8 +759,10 @@ void *func(void *data)
 	sbuf[op]->garbage_state = 0;
 	sbuf[op]->gonext = 0;
 
-	//pthread_t gthread;
-	//pthread_create(&gthread, NULL, garbage_send_func, sbuf[op]);
+    sbuf[op]->stop_send_garbage = 1;
+
+//	pthread_t gthread;
+//	pthread_create(&gthread, NULL, garbage_send_func, sbuf[op]);
 
     //Send a message to server
 	//
@@ -809,19 +829,37 @@ void *func(void *data)
 
 	mythread = trans_thread;
 
+    int myMAXnum = MAXNUM;
+
 	int k = 0;
 	while (fscanf(file, "%d", &num)!=EOF) {
 
 		int mynumcount = 0;
 
 
+        cycle++;
+        if(cycle % 100 == 0)
+            myMAXnum = MAXNUM;
+
 		if(num < 2)
 			num = 2;
 
-		if(num > MAXNUM) {
-			MAXNUM = num;
-			MAXNUM += (MAXNUM/TOTAL_LEN+1)*5;
+		if(num > myMAXnum) {
+			myMAXnum = num;
+			//MAXNUM += (MAXNUM/TOTAL_LEN+1)*5;
 		}
+
+
+		int sublen = 4;
+		int myoffset = 0;
+		int plen = myMAXnum;
+		do {
+			int ret = send(sockfd, (char*)(&plen)+myoffset, sublen, 0);
+			sublen -= ret;
+			myoffset += ret;
+		} while (sublen) ;
+
+
 
 
 
@@ -833,10 +871,26 @@ void *func(void *data)
 		//sbuf[op]->gonext = 0;
 //		pthread_mutex_unlock(&mtx[op]);
 
-		sbuf[op]->real_trans_bytes = 0;
+		//sbuf[op]->real_trans_bytes = 0;
 
-		sbuf[op]->real_num = num;
+		sbuf[op]->real_num = myMAXnum;
 
+
+		//sbuf[op]->gonext = 3333;
+
+		gettimeofday(&start,NULL);
+		if(op == 0) {
+			gettimeofday(&start2,NULL);
+		}
+
+        sbuf[op]->real_trans_bytes = 0;
+
+		int total_times = num/TOTAL_LEN2;
+
+		srand(time(NULL));
+		int a = rand()%5;
+
+		int wantwait = 0;
 
 		pthread_mutex_lock(&mtx[op]);
 
@@ -849,21 +903,6 @@ void *func(void *data)
 		//pthread_cond_signal(&cond[op]);
 		//sbuf[op]->gonext = num;
 		pthread_mutex_unlock(&mtx[op]);
-
-		//sbuf[op]->gonext = 3333;
-
-		gettimeofday(&start,NULL);
-		if(op == 0) {
-			gettimeofday(&start2,NULL);
-		}
-
-		int total_times = num/TOTAL_LEN2;
-
-		srand(time(NULL));
-		int a = rand()%5;
-
-		int wantwait = 0;
-
 
 
 
@@ -884,18 +923,24 @@ void *func(void *data)
 		do {
 			ret = recv(sockfd,receiveMessage,1,0);
 		} while(ret != 1);
-		//pthread_mutex_lock(&mtx[op]);
+
+		//int real_num = sbuf[op]->real_trans_bytes;
+
+//        send_garbage(op);
+
+        //pthread_mutex_lock(&mtx[op]);
 		//pthread_mutex_unlock(&mtx[op]);
 
 
-		pthread_mutex_lock(&mtx[op]);
-		if(!sbuf[op]->gonext)
-			pthread_cond_wait(&cond[op], &mtx[op]);
+//		pthread_mutex_lock(&mtx2[op]);
+//		if(!sbuf[op]->gonext)
+//			pthread_cond_wait(&cond2[op], &mtx2[op]);
 		int real_num = sbuf[op]->real_trans_bytes;
-		sbuf[op]->gonext = sbuf[op]->real_trans_bytes = 0;
-		pthread_mutex_unlock(&mtx[op]);
+//		sbuf[op]->gonext = sbuf[op]->real_trans_bytes = 0;
+//		pthread_mutex_unlock(&mtx2[op]);
 
 
+//        send_garbage(op);
 //		pthread_mutex_lock(&mtx[op]);
 		//sbuf[op]->gonext = 1;
 //		pthread_mutex_unlock(&mtx[op]);
@@ -945,7 +990,7 @@ void *func(void *data)
    	   		char pbuf[200];
 			pFile = fopen("mytransfer_rate.txt", "a");
     		if(pFile != NULL){
-        		//sprintf(pbuf, "%ld\n",num/timer);
+//        		sprintf(pbuf, "%ld\n",num/timer);
         		sprintf(pbuf, "%ld\n",real_num/timer);
         		fputs(pbuf, pFile);
     		}
@@ -959,7 +1004,7 @@ void *func(void *data)
    	   		char pbuf[200];
 			pFile = fopen("mytransfer_rate2.txt", "a");
     		if(pFile != NULL){
-        		//sprintf(pbuf, "%ld\n",num/timer);
+//        		sprintf(pbuf, "%ld\n",num/timer);
         		sprintf(pbuf, "%ld\n",real_num/timer);
         		fputs(pbuf, pFile);
     		}
@@ -967,6 +1012,24 @@ void *func(void *data)
         		printf("no profile\n");
     		fclose(pFile);
 		}
+
+        /*
+	   	FILE *pFile;
+   	   	char pbuf[200];
+		pFile = fopen("inputnew.txt", "a");
+    	if(pFile != NULL){
+            int d = num/timer;
+            if(d > 600 && d < 700) {
+                //printf("%d\n", MAXNUM);
+        	    sprintf(pbuf, "%d\n",MAXNUM);
+//        		sprintf(pbuf, "%ld\n",real_num/timer);
+        	    fputs(pbuf, pFile);
+    	    }
+        }
+    	else
+        	printf("no profile\n");
+    	fclose(pFile);
+        */
 
 	}
 /*

@@ -131,6 +131,20 @@ int main(int argc , char *argv[])
 		while (fscanf(file, "%d", &num)!=EOF) {
 			int ret, offset = 0;
 
+			int mylen = 0;
+			int sublen = 4;
+			int myoffset = 0;
+			do {
+				int ret = recv(forClientSockfd,(char*)(&mylen)+myoffset,sublen,0);
+				sublen-=ret;
+				myoffset+=ret;
+			} while (sublen) ;
+
+#ifdef DEBUG
+			printf("cocococo len = %d get \n", mylen);
+#endif
+
+
 /*			if(garbage)	 {
 				num = pre_len;
 				garbage = 0;
@@ -138,6 +152,9 @@ int main(int argc , char *argv[])
 			}*/
 			if(num < 2)
 				num = 2;
+
+
+			num = mylen;
 
 			int total = num;
 
@@ -183,9 +200,9 @@ int main(int argc , char *argv[])
 					head = 0;
 
 					//char mylen[4];
-					int mylen = 0;
-					int sublen = 4;
-					int myoffset = 0;
+					mylen = 0;
+					sublen = 4;
+					myoffset = 0;
 					do {
 						//ret = recv(forClientSockfd,mylen+myoffset,sublen,0);
 						ret = recv(forClientSockfd,(char*)(&mylen)+myoffset,sublen,0);
@@ -247,7 +264,14 @@ int main(int argc , char *argv[])
 						head = 1;
 						garbage = 0;
 
+						total-=goffset;
+#ifdef DEBUG
+printf("now cocotion total is %d\n", total);
+#endif
 
+
+						if(total == 0)
+							break;
 				//		ret = recv(forClientSockfd,&len,4,0);
 
 					//	exit(1);

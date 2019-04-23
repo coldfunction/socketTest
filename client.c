@@ -61,7 +61,7 @@ unsigned int totalwait = 0;
 
 
 //int MAXNUM = 5000000;
-#define MAXNUM 5000000
+#define MAXNUM 3500000
 //int MAXNUM = 100;
 unsigned int cycle = 0;
 
@@ -984,6 +984,7 @@ void *func(void *data)
 		if(runningtime <= 0)
 			runningtime = 1;
 
+//        printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ real time = %ld\n", timer);
 
 		if(op%2 == 0) {
 	   		FILE *pFile;

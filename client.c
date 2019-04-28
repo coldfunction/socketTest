@@ -23,7 +23,7 @@
 
 #define TOTAL_LEN (64*1024)
 //#define TOTAL_LEN (512*1024)
-#define TOTAL_DATA_SIZE (4*1024*1024)
+#define TOTAL_DATA_SIZE (8*1024*1024)
 //#define TOTAL_DATA_SIZE (64*1024*1024)
 #define META_HEAD (TOTAL_DATA_SIZE/TOTAL_LEN)
 
@@ -70,6 +70,8 @@ struct sendBuf
     int fd;
 
 	char *buf;
+
+    int gonext;
 
 };
 
@@ -279,7 +281,7 @@ void *trans_func(void *data)
 		}
 */
 		while (sbuf[op]->head == sbuf[op]->tail) {
-			if(sbuf[op]->bottom) break;
+			//if(sbuf[op]->bottom) break;
 #ifdef DEBUG
 			printf("wait op = %d, head = %d, tail = %d\n", op, sbuf[op]->head, sbuf[op]->tail);
 #endif
@@ -313,20 +315,21 @@ void *trans_func(void *data)
 			}
 */
 
+		    pthread_cond_signal(&cond[op]);
 
 
 		//	send_garbage(op);
 			//garbage_send_func(sbuf[op]);
 			//garbage_send_func2(sbuf[op]);
 			pthread_mutex_unlock(&mtx[op]);
-			garbage_send_func2(sbuf[op]);
-			usleep(100);
+			//garbage_send_func2(sbuf[op]);
+			//usleep(100);
 
 			op = (op+1)%2;
 			sockfd = sbuf[op]->sockfd;
 			buf  = sbuf[op]->buf;
+			usleep(5);
 			pthread_mutex_lock(&mtx[op]);
-			//usleep(50);
 			continue;
 
 
@@ -401,11 +404,11 @@ void *trans_func(void *data)
 */
 		head = sbuf[op]->head;
 		tail = sbuf[op]->tail;
-		bottom = sbuf[op]->bottom;
+		//bottom = sbuf[op]->bottom;
 
 		int update_head = 0;
 
-
+/*
 		if(bottom) {
 			tail = bottom;
 			update_head = 1;
@@ -413,7 +416,8 @@ void *trans_func(void *data)
 			printf("op = %d, bottom = %d\n", op, bottom);
 #endif
 		}
-
+*/
+//			printf("after wait op = %d, head = %d, tail = %d\n", op, sbuf[op]->head, sbuf[op]->tail);
 		pthread_mutex_unlock(&mtx[op]);
 
 		int offset = 0;
@@ -421,6 +425,7 @@ void *trans_func(void *data)
 		int num = ((tail-head) >= TOTAL_LEN) ? TOTAL_LEN : (tail-head);
 		int total_times = num/TOTAL_LEN;
 		int i;
+
 /*
 		if(tail == head) {
 			pthread_mutex_lock(&mtx[op]);
@@ -436,9 +441,10 @@ void *trans_func(void *data)
 */
 		//stop_send_garbage(op);
 //        char *ptr;
+#ifdef GARBAGE
         char mmbuf;
     	memset(&mmbuf, 0, 1);
-
+#endif
 		for(i = 0; i < total_times; i++) {
 			offset = 0;
 //			len+=1;
@@ -478,7 +484,8 @@ void *trans_func(void *data)
 //				printf("before send content ptr[2] = %c\n", ptr[2]);
 			//	printf("before send content buf+head = %c\n", *(char*)(buf+head));
 				int ret = 0;
-                if(offset == 0) {
+#ifdef GARBAGE
+               if(offset == 0) {
 				    //while ( ret = send(sockfd, &mmbuf, 1,0) == -1);
 					do {
 				    	ret = send(sockfd, &mmbuf, 1,0);
@@ -505,10 +512,15 @@ void *trans_func(void *data)
 					printf("cocotion op = %d, send len = %d, ret = %d\n",op,  len, ret);
 #endif
                 }
+#endif
 //				ret = send(sockfd, ptr + offset -1 , len,0);
 
 
+#ifdef GARBAGE
 				ret = send(sockfd, buf+head + offset -1 , len,0);
+#else
+				ret = send(sockfd, buf+head + offset , len,0);
+#endif
 
 #ifdef DEBUG
 
@@ -530,9 +542,9 @@ void *trans_func(void *data)
 
 		offset = 0;
 		int rest = num - total_times*TOTAL_LEN;
-
+#ifdef GARBAGE
     	memset(&mmbuf, 0, 1);
-
+#endif
         if(rest) {
             //mmap(buf+head, rest, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 1);
             //ptr = mmap(0, TOTAL_LEN+1, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -562,6 +574,7 @@ void *trans_func(void *data)
 	    		//int ret = send(sockfd, mbuf + offset, rest,0);
 	    		//int ret = send(sockfd, ptr + offset, rest,0);
 				int ret = 0;
+#ifdef GARBAGE
                 if(offset == 0) {
 				    //while ( ret = send(sockfd, &mmbuf, 1,0) == -1);
 					do {
@@ -597,6 +610,9 @@ void *trans_func(void *data)
 				}
 //				while ( ret = send(sockfd, buf+head + offset -1 ,rest,0) == -1);
 				ret = send(sockfd, buf+head + offset -1 ,rest,0);
+#else
+				ret = send(sockfd, buf+head + offset ,rest,0);
+#endif
 				if(ret == -1)
 					exit(1);
 				//	continue;
@@ -613,14 +629,25 @@ void *trans_func(void *data)
 				offset += ret;
 	    		rest = rest - ret;
 			}while (rest);
-
+#ifdef GARBAGE
 			head = head + offset-1;
+#else
+			head = head + offset;
+#endif
 			//head-=1;
 		}
 
 //        munmap(ptr+1, TOTAL_LEN);
 
         pthread_mutex_lock(&mtx[op]);
+
+        /*int myhead = sbuf[op]->head;
+        int mytail = sbuf[op]->tail;
+        if(myhead == mytail && mytail ==  0) {
+            pthread_mutex_unlock(&mtx[op]);
+            continue;
+        }*/
+
 		sbuf[op]->head = head;
 		pthread_mutex_unlock(&mtx[op]);
 
@@ -638,18 +665,28 @@ void *trans_func(void *data)
 		pthread_mutex_unlock(&mtx[op]);
 		*/
 
-		if(tail == head) {
-			pthread_mutex_lock(&mtx[op]);
+/*
+        pthread_mutex_lock(&mtx[op]);
+		if(sbuf[op]->tail == sbuf[op]->head) {
+			//pthread_mutex_lock(&mtx[op]);
 			if(update_head) {
 				sbuf[op]->bottom = 0;
 				sbuf[op]->head = 0;
 			}
 			pthread_cond_signal(&cond[op]);
 //			pthread_cond_signal(&cond3);
-			pthread_mutex_unlock(&mtx[op]);
+	//		pthread_mutex_unlock(&mtx[op]);
 			//dododo
 		}
+		pthread_mutex_unlock(&mtx[op]);
+*/
 
+
+/*        while(sbuf[op]->head == sbuf[op]->tail && sbuf[op]->tail != 0) {
+		    pthread_mutex_lock(&mtx[op]);
+		    pthread_cond_signal(&cond[op]);
+		    pthread_mutex_unlock(&mtx[op]);
+        } */
 //cocotion fucking
 /*
 
@@ -714,6 +751,7 @@ void *func(void *data)
 	sbuf[op]->op_switch = 0;
     //sbuf[op]->fd = fd;
 
+    sbuf[op]->gonext = 0;
 
 	int sockfd = socket_connect("172.31.3.2", port_num);
 	int sockfd2 = socket_connect("172.31.3.2", port_num+1);
@@ -895,6 +933,7 @@ void *func(void *data)
 			pthread_mutex_lock(&mtx[op]);
 			tail = sbuf[op]->tail;
 
+/*
 			if(tail + TOTAL_LEN >= TOTAL_DATA_SIZE) {
 				sbuf[op]->bottom = tail;
 				sbuf[op]->tail = 0;
@@ -904,6 +943,8 @@ void *func(void *data)
 				printf("op#####= %d, total_len#####, bottom = %d\n", op, tail);
 #endif
 			}
+*/
+
 			//else
 			//	sbuf[op]->tail = start;
 
@@ -989,6 +1030,7 @@ void *func(void *data)
 
 			pthread_mutex_lock(&mtx[op]);
 			tail = sbuf[op]->tail;
+            /*
 			if(tail + rest >= TOTAL_DATA_SIZE) {
 				sbuf[op]->bottom = tail;
 				sbuf[op]->tail = 0;
@@ -997,7 +1039,7 @@ void *func(void *data)
 #ifdef DEBUG
 				printf("op#####= %d, rest##### = %d bottom = %d\n", op, rest, tail);
 #endif
-			}
+			}*/
 #ifdef DEBUG
 			printf("rest@@@@@@@@@@@@@ op = %d, tail = %d, head = %d\n", op, sbuf[op]->tail, sbuf[op]->head);
 #endif
@@ -1073,7 +1115,12 @@ void *func(void *data)
 		} while(ret != 1);
 		//pthread_mutex_lock(&mtx[op]);
 		//pthread_mutex_unlock(&mtx[op]);
-
+		pthread_mutex_lock(&mtx[op]);
+        sbuf[op]->gonext = 1;
+ //       printf("op = %d, cocotion fuck shit wait, head = %d, tail = %d\n", op, sbuf[op]->head, sbuf[op]->tail);
+		pthread_cond_wait(&cond[op], &mtx[op]);
+        sbuf[op]->tail = sbuf[op]->head = 0;
+		pthread_mutex_unlock(&mtx[op]);
 
 		gettimeofday(&end,NULL);
 		timer = 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
@@ -1120,7 +1167,7 @@ void *func(void *data)
         		printf("no profile\n");
     		fclose(pFile);
 		}
-		if(op%2 == 1) {
+		else if(op%2 == 1) {
 	   		FILE *pFile;
    	   		char pbuf[200];
 			pFile = fopen("mytransfer_rate2.txt", "a");

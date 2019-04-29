@@ -110,8 +110,10 @@ int main(int argc , char *argv[])
 			return 0;
 		}
 		while (fscanf(file, "%d", &num)!=EOF) {
-			if(num == 0)
-				num = 1;
+			//if(num == 0)
+				//num = 1;
+			if(num < 2)
+				num = 2;
 
 			int total = num;
 			len = TOTAL_LEN;

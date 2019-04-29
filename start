@@ -7,6 +7,8 @@ sleep 1
 sshpass -p xxxx ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; killall server; gnome-terminal -x bash -c './server 5566; read' " &
 sleep 1
 sshpass -p xxxx ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; gnome-terminal -x bash -c './server 5577; read' " &
+sleep 1
+sshpass -p xxxx ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; gnome-terminal -x bash -c './server 5588; read' " &
 
 sleep 1
 ./client 5566

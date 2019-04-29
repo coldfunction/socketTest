@@ -25,7 +25,7 @@ do
 done
 
 
-./client 5566
+./client 5566 $1
 
 
 

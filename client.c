@@ -27,7 +27,7 @@
 //#define TOTAL_DATA_SIZE (64*1024*1024)
 #define META_HEAD (TOTAL_DATA_SIZE/TOTAL_LEN)
 
-#define TOTAL_VM 4
+int TOTAL_VM = 1;
 
 pthread_t mythread;
 
@@ -1259,6 +1259,7 @@ int main(int argc , char *argv[])
 
 
 	int port_num = atoi(argv[1]);
+	TOTAL_VM = atoi(argv[2]);
 
 	pthread_attr_t tattr[TOTAL_VM];
 

@@ -27,12 +27,12 @@
 //#define TOTAL_DATA_SIZE (64*1024*1024)
 #define META_HEAD (TOTAL_DATA_SIZE/TOTAL_LEN)
 
-#define TOTAL_VM 3
+#define TOTAL_VM 4
 
 pthread_t mythread;
 
-static pthread_mutex_t mtx[3];
-static pthread_cond_t cond[3];
+static pthread_mutex_t mtx[4];
+static pthread_cond_t cond[4];
 
 static pthread_mutex_t mtx2[2];
 static pthread_cond_t cond2[2];
@@ -1197,6 +1197,18 @@ void *func(void *data)
         		printf("no profile\n");
     		fclose(pFile);
 		}
+        else if(op % TOTAL_VM == 3) {
+	   		FILE *pFile;
+   	   		char pbuf[200];
+			pFile = fopen("mytransfer_rate4.txt", "a");
+    		if(pFile != NULL){
+        		sprintf(pbuf, "%ld\n",num/timer);
+        		fputs(pbuf, pFile);
+    		}
+    		else
+        		printf("no profile\n");
+    		fclose(pFile);
+		}
 	}
 
 	pthread_mutex_lock(&mtx[op]);
@@ -1261,11 +1273,12 @@ int main(int argc , char *argv[])
 	int port_num = atoi(argv[1]);
 
 
-	pthread_attr_t tattr1, tattr2, tattr3;
+	pthread_attr_t tattr1, tattr2, tattr3, tattr4;
 	int ret;
 	pthread_attr_init(&tattr1);
 	pthread_attr_init(&tattr2);
 	pthread_attr_init(&tattr3);
+	pthread_attr_init(&tattr4);
 //	ret = pthread_attr_setschedpolicy(&tattr1, SCHED_RR);
 //	ret = pthread_attr_setschedpolicy(&tattr2, SCHED_RR);
 
@@ -1280,9 +1293,11 @@ int main(int argc , char *argv[])
 	pthread_create(&appThread[0], &tattr1, func, &port_num);
 	int port_num2 = port_num+11;
 	int port_num3 = port_num+22;
+	int port_num4 = port_num+33;
 
 	pthread_create(&appThread[1], &tattr2, func, &port_num2);
 	pthread_create(&appThread[2], &tattr3, func, &port_num3);
+	pthread_create(&appThread[3], &tattr3, func, &port_num4);
 
 
 
@@ -1295,6 +1310,7 @@ int main(int argc , char *argv[])
 	pthread_join(appThread[0], NULL);
 	pthread_join(appThread[1], NULL);
 	pthread_join(appThread[2], NULL);
+	pthread_join(appThread[3], NULL);
 
 
 	pthread_cancel(mythread);

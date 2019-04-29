@@ -4,13 +4,28 @@ gcc -o server server.c -lpthread
 gcc -o client client.c -lpthread
 sleep 1
 
-sshpass -p xxxx ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; killall server; gnome-terminal -x bash -c './server 5566; read' " &
-sleep 1
-sshpass -p xxxx ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; gnome-terminal -x bash -c './server 5577; read' " &
-sleep 1
-sshpass -p xxxx ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; gnome-terminal -x bash -c './server 5588; read' " &
-sleep 1
-sshpass -p xxxx ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; gnome-terminal -x bash -c './server 5599; read' " &
+PASSWD=xxxx
 
-sleep 1
+for i in $(seq 1 $1);
+do
+    if [ "$i" = "1" ] 
+    then
+        sshpass -p $PASSWD ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; killall server; gnome-terminal -x bash -c './server 5566; read' " &
+        sleep 1
+    else
+        newi=$(( $i - 1 ))
+        newi=$(( $newi * 11 ))
+        KVALUE=$(( 5566 + $newi ))
+        sshpass -p $PASSWD ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; gnome-terminal -x bash -c './server $KVALUE; read' " &
+        #echo $KVALUE
+        sleep 1
+    fi
+
+
+done
+
+
 ./client 5566
+
+
+

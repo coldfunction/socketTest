@@ -1243,18 +1243,6 @@ void *func(void *data)
 int main(int argc , char *argv[])
 {
 
-	pthread_mutex_init(&mtx[0], NULL);
-	pthread_cond_init(&cond[0], NULL);
-
-	pthread_mutex_init(&mtx[1], NULL);
-	pthread_cond_init(&cond[1], NULL);
-
-    pthread_mutex_init(&mtx[2], NULL);
-	pthread_cond_init(&cond[2], NULL);
-
-
-
-
 	pthread_mutex_init(&mtx2[0], NULL);
 	pthread_cond_init(&cond2[0], NULL);
 
@@ -1272,16 +1260,19 @@ int main(int argc , char *argv[])
 
 	int port_num = atoi(argv[1]);
 
+	pthread_attr_t tattr[TOTAL_VM];
 
-	pthread_attr_t tattr1, tattr2, tattr3, tattr4;
-	int ret;
-	pthread_attr_init(&tattr1);
-	pthread_attr_init(&tattr2);
-	pthread_attr_init(&tattr3);
-	pthread_attr_init(&tattr4);
-//	ret = pthread_attr_setschedpolicy(&tattr1, SCHED_RR);
-//	ret = pthread_attr_setschedpolicy(&tattr2, SCHED_RR);
+    int i;
+    int newport[TOTAL_VM];
+    for(i = 0; i < TOTAL_VM; i++) {
+	    pthread_mutex_init(&mtx[i], NULL);
+	    pthread_cond_init(&cond[i], NULL);
 
+        pthread_attr_init(&tattr[i]);
+	    //pthread_attr_setschedpolicy(&tattr[i], SCHED_RR);
+        //
+        newport[i] = port_num + i*11;
+    }
 
 	pthread_barrier_init(&barr, NULL, TOTAL_VM);
 
@@ -1290,28 +1281,26 @@ int main(int argc , char *argv[])
 	pthread_t appThread[TOTAL_VM];
 
 	//pthread_create(&appThread[0], &tattr1, func, &port_num);
-	pthread_create(&appThread[0], &tattr1, func, &port_num);
-	int port_num2 = port_num+11;
-	int port_num3 = port_num+22;
-	int port_num4 = port_num+33;
-
-	pthread_create(&appThread[1], &tattr2, func, &port_num2);
-	pthread_create(&appThread[2], &tattr3, func, &port_num3);
-	pthread_create(&appThread[3], &tattr3, func, &port_num4);
 
 
 
+
+    for(i = 0; i < TOTAL_VM; i++) {
+
+        //int newport = port_num + i*11;
+        pthread_create(&appThread[i], &tattr[i], func, &newport[i]);
+
+    }
 
 
 
 
 //	pthread_cancel(appThread[0]);
 //	pthread_cancel(appThread[1]);
-	pthread_join(appThread[0], NULL);
-	pthread_join(appThread[1], NULL);
-	pthread_join(appThread[2], NULL);
-	pthread_join(appThread[3], NULL);
 
+    for(i = 0; i < TOTAL_VM; i++)  {
+        pthread_join(appThread[i], NULL);
+    }
 
 	pthread_cancel(mythread);
 	pthread_join(mythread, NULL);
@@ -1431,9 +1420,7 @@ int main(int argc , char *argv[])
 				usleep(rand()%200);
 			}
 
-
-			int start = sbuf->tail;
-
+int start = sbuf->tail;
 			len = TOTAL_LEN;
 
 

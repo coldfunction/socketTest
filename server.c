@@ -129,10 +129,10 @@ int main(int argc , char *argv[])
 			while ( ret = recv(forClientSockfd,inputBuffer+offset,len,0) ) {
 				offset += ret;
 				len = len - ret;
-			printf("cocotion recv len = %d\n", ret);
+	//		printf("cocotion recv len = %d\n", ret);
 				if(len == 0) {
 					total-=offset;
-					printf("cocotion test rest recv = %d\n", total);
+	//				printf("cocotion test rest recv = %d\n", total);
 					if(total == 0)
 						break;
 					else {
@@ -144,7 +144,7 @@ int main(int argc , char *argv[])
 					}
 				}
 			}
-			printf("cocotion test ok I recv all\n");
+	//		printf("cocotion test ok I recv all\n");
 
 //			int i;
 		//for(i = 0; i < TOTAL_LEN; i++) {

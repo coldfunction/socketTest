@@ -14,10 +14,10 @@
 
 
 #define TOTAL_LEN (64*1024)
-#define TOTAL_DATA_SIZE (4*1024*1024)
+#define TOTAL_DATA_SIZE (8*1024*1024)
 
-static pthread_mutex_t mtx[2];
-static pthread_cond_t cond[2];
+static pthread_mutex_t mtx[4];
+static pthread_cond_t cond[4];
 
 //mtx[0] = PTHREAD_MUTEX_INITIALIZER;
 //cond[0] = PTHREAD_COND_INITIALIZER;
@@ -52,7 +52,7 @@ struct sendBuf
 
 };
 
-struct sendBuf *sbuf[2];
+struct sendBuf *sbuf[4];
 
 /*
 void send_garbage()
@@ -152,13 +152,14 @@ void *trans_func(void *data)
 	struct sendBuf *tbuf = (struct sendBuf*)data;
 	int op = tbuf->op;
 
+    /*
 	cpu_set_t cpuset;
 //	int cpu = op%2;
 	int cpu = 7;
 	CPU_ZERO(&cpuset);
 	CPU_SET(cpu, &cpuset);
 	sched_setaffinity(0, sizeof(cpuset), &cpuset);
-
+*/
 
 
 	int sockfd = tbuf->sockfd;
@@ -243,7 +244,7 @@ void *func(void *data)
 {
 	int *port = (int*)data;
 	int port_num = *port;
-	int op = port_num%2;
+	int op = port_num%3;
 
 	printf("cocotion test port num = %d, op = %d\n", port_num, op);
 
@@ -259,8 +260,8 @@ void *func(void *data)
 
 	sbuf[op]->op = op;
 
-	pthread_t gthread;
-	pthread_create(&gthread, NULL, garbage_send_func, sbuf[op]);
+	//pthread_t gthread;
+	//pthread_create(&gthread, NULL, garbage_send_func, sbuf[op]);
 
     //Send a message to server
 	//
@@ -310,17 +311,18 @@ void *func(void *data)
 	int policy;
 	int ret;
 
-	pthread_attr_init(&tattr);
+	//pthread_attr_init(&tattr);
 
-	ret = pthread_attr_setschedpolicy(&tattr, SCHED_RR);
+//	ret = pthread_attr_setschedpolicy(&tattr, SCHED_RR);
 
 
-	pthread_t trans_thread;
-	pthread_create(&trans_thread, &tattr, trans_func, sbuf[op]);
+	//pthread_t trans_thread;
+	//pthread_create(&trans_thread, &tattr, trans_func, sbuf[op]);
 //	pthread_create(&trans_thread, NULL, trans_func, sbuf[op]);
 
 	int k = 0;
 	while (fscanf(file, "%d", &num)!=EOF) {
+//	printf("cocotion test port num = %d, op = %d\n", port_num, op);
 
 		if(num == 0)
 			num = 1;
@@ -363,74 +365,57 @@ void *func(void *data)
 			}
 
 
-			int start = sbuf[op]->tail;
+			char *buf = sbuf[op]->buf;
 
+
+		do {
+
+	    		int ret = send(sockfd,buf + offset, len,0);
+				offset += ret;
+	    		len = len - ret;
+
+			}while (len);
 			len = TOTAL_LEN;
-
-
-			pthread_mutex_lock(&mtx[op]);
-			if(start < sbuf[op]->head) {
-				while(start+len > sbuf[op]->head) {
-					pthread_cond_wait(&cond[op], &mtx[op]);
-					break;
-				}
-			}
-			pthread_mutex_unlock(&mtx[op]);
-
-			start += len;
-
-
-			pthread_mutex_lock(&mtx[op]);
-
-			if(start + TOTAL_LEN > TOTAL_DATA_SIZE) {
-				sbuf[op]->bottom = start;
-				sbuf[op]->tail = 0;
-			}
-			else
-				sbuf[op]->tail = start;
-
-			pthread_cond_signal(&cond[op]);
-			pthread_mutex_unlock(&mtx[op]);
+			offset = 0;
 		}
 
-		offset = 0;
+
 		int rest = num - total_times*TOTAL_LEN;
 		if(rest) {
-
-
-			int start = sbuf[op]->tail;
-
-
-			pthread_mutex_lock(&mtx[op]);
-			if(start < sbuf[op]->head) {
-				while(start+rest > sbuf[op]->head) {
-					pthread_cond_wait(&cond[op], &mtx[op]);
-					break;
-				}
-			}
-			pthread_mutex_unlock(&mtx[op]);
-
-			start += rest;
-			pthread_mutex_lock(&mtx[op]);
-
-			if(start + TOTAL_LEN > TOTAL_DATA_SIZE) {
-				sbuf[op]->bottom = start;
-				sbuf[op]->tail = 0;
-			}
-			else
-				sbuf[op]->tail = start;
-
-			pthread_cond_signal(&cond[op]);
-			pthread_mutex_unlock(&mtx[op]);
-
+			do {
+	    		int ret = send(sockfd,buf + offset, rest,0);
+				offset += ret;
+	    		rest = rest - ret;
+			}while (rest);
 		}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 		recv(sockfd,receiveMessage,sizeof(receiveMessage),0);
 
 		gettimeofday(&end,NULL);
 		timer = 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
 
-		if(op%2 == 0)
-			printf("%ld\n", num/timer);
+		//if(op%2 == 0)
+		//	printf("%ld\n", num/timer);
 
 
 		fscanf(file2, "%d", &runningtime);
@@ -441,7 +426,7 @@ void *func(void *data)
 			runningtime = 1;
 
 
-		if(op%2 == 0) {
+		if(op%4 == 0) {
 	   		FILE *pFile;
    	   		char pbuf[200];
 			pFile = fopen("mytransfer_rate.txt", "a");
@@ -453,13 +438,49 @@ void *func(void *data)
         		printf("no profile\n");
     		fclose(pFile);
 		}
+		else if(op%4 == 1) {
+	   		FILE *pFile;
+   	   		char pbuf[200];
+			pFile = fopen("mytransfer_rate2.txt", "a");
+    		if(pFile != NULL){
+        		sprintf(pbuf, "%ld\n",num/timer);
+        		fputs(pbuf, pFile);
+    		}
+    		else
+        		printf("no profile\n");
+    		fclose(pFile);
+		}
+		else if(op%4 == 2) {
+	   		FILE *pFile;
+   	   		char pbuf[200];
+			pFile = fopen("mytransfer_rate3.txt", "a");
+    		if(pFile != NULL){
+        		sprintf(pbuf, "%ld\n",num/timer);
+        		fputs(pbuf, pFile);
+    		}
+    		else
+        		printf("no profile\n");
+    		fclose(pFile);
+		}
+		else if(op%4 == 3) {
+	   		FILE *pFile;
+   	   		char pbuf[200];
+			pFile = fopen("mytransfer_rate4.txt", "a");
+    		if(pFile != NULL){
+        		sprintf(pbuf, "%ld\n",num/timer);
+        		fputs(pbuf, pFile);
+    		}
+    		else
+        		printf("no profile\n");
+    		fclose(pFile);
+		}
 	}
 
-	pthread_cancel(trans_thread);
-	pthread_join(trans_thread, NULL);
+//	pthread_cancel(trans_thread);
+//	pthread_join(trans_thread, NULL);
 
-	pthread_cancel(gthread);
-	pthread_join(gthread, NULL);
+//	pthread_cancel(gthread);
+//	pthread_join(gthread, NULL);
 
     printf("close Socket\n");
 	free(buf);
@@ -482,7 +503,10 @@ int main(int argc , char *argv[])
 	pthread_mutex_init(&mtx[1], NULL);
 	pthread_cond_init(&cond[1], NULL);
 
-	pthread_mutex_init(&mtx2[0], NULL);
+	pthread_mutex_init(&mtx[2], NULL);
+	pthread_cond_init(&cond[2], NULL);
+
+    pthread_mutex_init(&mtx2[0], NULL);
 	pthread_cond_init(&cond2[0], NULL);
 
 	pthread_mutex_init(&mtx2[1], NULL);
@@ -492,13 +516,18 @@ int main(int argc , char *argv[])
 
 
 	int port_num = atoi(argv[1]);
+	int port_num2 = port_num+11;
+	int port_num3 = port_num+22;
+	int port_num4 = port_num+33;
 
-	pthread_t appThread[2];
+	pthread_t appThread[4];
 
 	pthread_create(&appThread[0], NULL, func, &port_num);
-	int port_num2 = port_num+11;
 
 	pthread_create(&appThread[1], NULL, func, &port_num2);
+
+    pthread_create(&appThread[2], NULL, func, &port_num3);
+ //   pthread_create(&appThread[3], NULL, func, &port_num4);
 
 
 
@@ -507,6 +536,8 @@ int main(int argc , char *argv[])
 //	pthread_cancel(appThread[1]);
 	pthread_join(appThread[0], NULL);
 	pthread_join(appThread[1], NULL);
+	pthread_join(appThread[2], NULL);
+//	pthread_join(appThread[3], NULL);
 
 //////////////////////////////
 /*

@@ -13,7 +13,7 @@
 #include <sched.h>
 
 
-#define TOTAL_LEN (64*1024)
+#define TOTAL_LEN (8*1024)
 #define TOTAL_DATA_SIZE (8*1024*1024)
 
 static pthread_mutex_t mtx[4];
@@ -244,7 +244,7 @@ void *func(void *data)
 {
 	int *port = (int*)data;
 	int port_num = *port;
-	int op = port_num%3;
+	int op = port_num%4;
 
 	printf("cocotion test port num = %d, op = %d\n", port_num, op);
 
@@ -527,7 +527,7 @@ int main(int argc , char *argv[])
 	pthread_create(&appThread[1], NULL, func, &port_num2);
 
     pthread_create(&appThread[2], NULL, func, &port_num3);
- //   pthread_create(&appThread[3], NULL, func, &port_num4);
+    pthread_create(&appThread[3], NULL, func, &port_num4);
 
 
 
@@ -537,7 +537,7 @@ int main(int argc , char *argv[])
 	pthread_join(appThread[0], NULL);
 	pthread_join(appThread[1], NULL);
 	pthread_join(appThread[2], NULL);
-//	pthread_join(appThread[3], NULL);
+	pthread_join(appThread[3], NULL);
 
 //////////////////////////////
 /*

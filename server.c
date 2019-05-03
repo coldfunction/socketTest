@@ -9,7 +9,8 @@
 #include <pthread.h>
 
 
-#define TOTAL_LEN (64*1024)
+//#define TOTAL_LEN (64*1024)
+#define TOTAL_LEN (8*1024)
 #define TOTAL_DATA_SIZE (8*1024*1024)
 
 
@@ -68,8 +69,8 @@ int main(int argc , char *argv[])
     char message[] = {"Hi,this is server okokokok.\n"};
 
 
-	pthread_t gthread;
-	pthread_create(&gthread, NULL, garbage_recv_func, &port_num);
+//	pthread_t gthread;
+//	pthread_create(&gthread, NULL, garbage_recv_func, &port_num);
 
 
 
@@ -94,7 +95,6 @@ int main(int argc , char *argv[])
 
 
 
-
 	//int total = TOTAL_DATA_SIZE;
 	FILE * file;
     while(1){
@@ -110,6 +110,9 @@ int main(int argc , char *argv[])
 			return 0;
 		}
 		while (fscanf(file, "%d", &num)!=EOF) {
+
+			int totalcount = 0;
+
 			//if(num == 0)
 				//num = 1;
 			if(num < 2)
@@ -131,7 +134,7 @@ int main(int argc , char *argv[])
 			while ( ret = recv(forClientSockfd,inputBuffer+offset,len,0) ) {
 				offset += ret;
 				len = len - ret;
-			//printf("cocotion recv len = %d\n", ret);
+				totalcount+=ret;
 				if(len == 0) {
 					total-=offset;
 			//		printf("cocotion test rest recv = %d\n", total);
@@ -147,7 +150,8 @@ int main(int argc , char *argv[])
 				}
 			}
 			//printf("cocotion test ok I recv all\n");
-
+//			if(num != totalcount)
+//				printf("totalcount = %d num = %d\n", totalcount, num);
 //			int i;
 		//for(i = 0; i < TOTAL_LEN; i++) {
 		//	if(inputBuffer[i] != '@' ) break;
@@ -162,11 +166,12 @@ int main(int argc , char *argv[])
         		ret = send(forClientSockfd,message,1,0);
 			} while (ret != 1);
 //        printf("Get:%s\n",inputBuffer);
+//			printf("okok after send, I will go next num = %d port num = %d\n", num, port_num);
     	}
 	}
 
-	pthread_cancel(gthread);
-	pthread_join(gthread, NULL);
+//	pthread_cancel(gthread);
+//	pthread_join(gthread, NULL);
 
 	free(inputBuffer);
 	close(sockfd);

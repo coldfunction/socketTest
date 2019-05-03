@@ -17,7 +17,7 @@ do
         newi=$(( $newi * 11 ))
         KVALUE=$(( 5566 + $newi ))
         sshpass -p $PASSWD ssh -o StrictHostKeyChecking=no -X coldfunction@192.168.11.101 "cd newnfs/socketTest; gnome-terminal -x bash -c './server $KVALUE; read' " &
-        #echo $KVALUE
+        echo $KVALUE
         sleep 1
     fi
 

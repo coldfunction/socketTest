@@ -314,6 +314,14 @@ void *trans_func(void *data)
 
 		pthread_mutex_unlock(&mtx[op]);
 
+/*
+		if(tail-head == 0) {
+			op = (op+1) % TOTAL_VM;
+			timer = 0;
+			usleep(133);
+			continue;
+		}
+*/
 		int offset = 0;
 
 		int num = ((tail-head) >= TOTAL_LEN) ? TOTAL_LEN : (tail-head);
@@ -382,9 +390,9 @@ void *trans_func(void *data)
 		//printf("op = %d, cocotion test time = %ld\n", op, timer);
 
 //		if(timer > 50) {
-//		if(timer > 130 ) { // 4 VMs is ok
-//		if(timer > 150 ) { // 2 VMs is ok
-		if(timer > 180 ) {
+		if(timer > 133 ) { // 4 VMs is ok
+//		if(timer > 200 ) { // 3 VMs is ok
+//		if(timer > 400 ) { // 2 VMs is ok
 			op = (op+1) % TOTAL_VM;
 			timer = 0;
 		}

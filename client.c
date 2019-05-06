@@ -35,6 +35,12 @@ static pthread_cond_t cond2[2];
 //cond2[1] = PTHREAD_COND_INITIALIZER;
 
 
+pthread_t mythread;
+static pthread_barrier_t barr;
+
+int TOTAL_VM = 4;
+
+
 
 struct sendBuf
 {
@@ -50,6 +56,7 @@ struct sendBuf
 
 	char *buf;
 
+	int gonext;
 };
 
 struct sendBuf *sbuf[4];
@@ -149,63 +156,81 @@ void stop_send_garbage(int op)
 
 void *trans_func(void *data)
 {
-	struct sendBuf *tbuf = (struct sendBuf*)data;
-	int op = tbuf->op;
 
-    /*
 	cpu_set_t cpuset;
-//	int cpu = op%2;
+	//	int cpu = op%2;
 	int cpu = 7;
 	CPU_ZERO(&cpuset);
 	CPU_SET(cpu, &cpuset);
 	sched_setaffinity(0, sizeof(cpuset), &cpuset);
-*/
 
 
-	int sockfd = tbuf->sockfd;
-	char *buf  = tbuf->buf;
-	int head, tail = 0;
-	int len = TOTAL_LEN;
-	int bottom = 0;
-	static int clear_rest = 0;
+	unsigned long timer = 0;
 
-
-
+//	int op = 0;
+	int op = *(int*)data;
 	while(1) {
+
+		//op = (op+1) % TOTAL_VM;
+
+		char *buf  = sbuf[op]->buf;
+		int sockfd = sbuf[op]->sockfd;
+		int head, tail = 0;
+		int len = TOTAL_LEN;
+		int bottom = 0;
+/*
+		int inloop = 0;
+		pthread_mutex_lock(&mtx[op]);
+		while (sbuf[op]->head == sbuf[op]->tail) {
+#ifdef DEBUG
+			printf("wait op = %d, head = %d, tail = %d\n", op, sbuf[op]->head, sbuf[op]->tail);
+#endif
+			inloop++;
+			printf("op = %d, inloop = %d\n", op, inloop);
+			printf("wait op = %d, head = %d, tail = %d\n", op, sbuf[op]->head, sbuf[op]->tail);
+//		    pthread_cond_signal(&cond[op]);
+			pthread_mutex_unlock(&mtx[op]);
+			op = (op+1) % TOTAL_VM;
+			sockfd = sbuf[op]->sockfd;
+			buf  = sbuf[op]->buf;
+			//usleep(5);
+			pthread_mutex_lock(&mtx[op]);
+		}
+		inloop = 0;
+*/
 		pthread_mutex_lock(&mtx[op]);
 
-		while (tbuf->head == tbuf->tail) {
-			if(tbuf->bottom) break;
-		//	send_garbage(op);
-//			printf("after send garbage command stop garbage = %d\n", tbuf->stop_send_garbage);
-			pthread_cond_wait(&cond[op], &mtx[op]);
-		}
+		head = sbuf[op]->head;
+		tail = sbuf[op]->tail;
 
-		head = tbuf->head;
-		tail = tbuf->tail;
-		bottom = tbuf->bottom;
+		sbuf[op]->gonext = 0;
 
-		int update_head = 0;
-		if(bottom) {
-			tail = bottom;
-			update_head = 1;
-		}
+		//int update_head = 0;
 
 		pthread_mutex_unlock(&mtx[op]);
 
 		int offset = 0;
 
-		int num = tail-head;
+		int num = ((tail-head) >= TOTAL_LEN) ? TOTAL_LEN : (tail-head);
 		int total_times = num/TOTAL_LEN;
 		int i;
 
-		//stop_send_garbage(op);
+	struct  timeval  start;
+	struct  timeval  end;
+	gettimeofday(&start,NULL);
+
+
 
 		for(i = 0; i < total_times; i++) {
 			offset = 0;
-
 			do {
-	    		int ret = send(sockfd,buf + offset + head, len,0);
+				int ret = 0;
+				ret = send(sockfd, buf+head + offset , len,0);
+
+#ifdef DEBUG
+
+			printf("       cocotion test op = %d, ret = %d, offset = %d len = %d\n", op, ret, offset, len);
+#endif
 				offset += ret;
 	    		len = len - ret;
 			}while (len);
@@ -217,26 +242,47 @@ void *trans_func(void *data)
 
 		offset = 0;
 		int rest = num - total_times*TOTAL_LEN;
-
-		if(rest) {
+        if(rest) {
 			do {
-	    		int ret = send(sockfd,buf + offset + head, rest,0);
+				int ret = 0;
+				ret = send(sockfd, buf+head + offset ,rest,0);
+				if(ret == -1)
+					exit(1);
+#ifdef DEBUG
+
+                printf("        cocotion test rest op = %d, ret = %d, offset = %d len = %d\n", op, ret, offset, rest);
+#endif
 				offset += ret;
 	    		rest = rest - ret;
 			}while (rest);
-
-			head+=offset;
+			head = head + offset;
 		}
 
-		tbuf->head = head;
 
-		pthread_mutex_lock(&mtx[op]);
-		if(update_head) {
-			tbuf->bottom = 0;
-			tbuf->head = 0;
-		}
-		pthread_cond_signal(&cond[op]);
+        pthread_mutex_lock(&mtx[op]);
+//		printf("~~~~op = %d, head= %d, tail = %d, local head = %d, gonext = %d\n", op, sbuf[op]->head, sbuf[op]->tail, head, sbuf[op]->gonext);
+
+		if(!sbuf[op]->gonext)
+			sbuf[op]->head = head;
+		//else
+        	//sbuf[op]->gonext = 0;
 		pthread_mutex_unlock(&mtx[op]);
+
+#ifdef DEBUG
+		printf("~~~~op = %d, head= %d, tail = %d\n", op, head, sbuf[op]->tail);
+#endif
+/*		gettimeofday(&end,NULL);
+		timer += 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
+
+		//printf("op = %d, cocotion test time = %ld\n", op, timer);
+
+//		if(timer > 50) {
+//		if(timer > 130 ) { // 4 VMs is ok
+//		if(timer > 150 ) { // 2 VMs is ok
+		if(timer > 180 ) {
+			op = (op+1) % TOTAL_VM;
+			timer = 0;
+		}*/
 	}
 }
 
@@ -244,31 +290,41 @@ void *func(void *data)
 {
 	int *port = (int*)data;
 	int port_num = *port;
-	int op = port_num%4;
+	int op = port_num % TOTAL_VM;
 
-	printf("cocotion test port num = %d, op = %d\n", port_num, op);
+    printf("cocotion test op = %d, port_num = %d\n", op, port_num);
+
+
+/*
+	cpu_set_t cpuset;
+	int cpu = op;
+//	int cpu = 7;
+	CPU_ZERO(&cpuset);
+	CPU_SET(cpu, &cpuset);
+	sched_setaffinity(0, sizeof(cpuset), &cpuset);
+*/
 
 	sbuf[op] = malloc(sizeof(struct sendBuf));
 	sbuf[op]->buf = malloc(TOTAL_DATA_SIZE);
 	sbuf[op]->head = sbuf[op]->tail = sbuf[op]->kick = sbuf[op]->bottom = 0;
 
-	int sockfd = socket_connect("172.31.3.2", port_num);
-	int sockfd2 = socket_connect("172.31.3.2", port_num+1);
 
-	sbuf[op]->sockfd2 = sockfd2;
+    sbuf[op]->gonext = 0;
+
+	int sockfd = socket_connect("172.31.3.2", port_num);
+
 	sbuf[op]->stop_send_garbage = 1;
 
 	sbuf[op]->op = op;
+	sbuf[op]->sockfd = sockfd;
 
-	//pthread_t gthread;
-	//pthread_create(&gthread, NULL, garbage_send_func, sbuf[op]);
+	printf("cocotion test sockfd = %d\n", sockfd);
 
     //Send a message to server
 	//
 
 	int len = TOTAL_LEN;
 	char *buf;
-	//buf = malloc(len);
 	buf = sbuf[op]->buf;
 	int i;
 	for(i = 0; i < TOTAL_DATA_SIZE; i++)
@@ -304,28 +360,27 @@ void *func(void *data)
 	int runningtime;
 	fscanf(file2, "%d", &runningtime);
 
-	sbuf[op]->sockfd = sockfd;
-
 
 	pthread_attr_t tattr;
-	int policy;
-	int ret;
-
-	//pthread_attr_init(&tattr);
-
-//	ret = pthread_attr_setschedpolicy(&tattr, SCHED_RR);
+	pthread_attr_init(&tattr);
+	pthread_attr_setschedpolicy(&tattr, SCHED_RR);
 
 
-	//pthread_t trans_thread;
-	//pthread_create(&trans_thread, &tattr, trans_func, sbuf[op]);
-//	pthread_create(&trans_thread, NULL, trans_func, sbuf[op]);
+	pthread_t trans_thread;
+//	if(op == 0) {
+	pthread_create(&trans_thread, &tattr, trans_func, &op);
+//	}
+
+	mythread = trans_thread;
 
 	int k = 0;
 	while (fscanf(file, "%d", &num)!=EOF) {
-//	printf("cocotion test port num = %d, op = %d\n", port_num, op);
 
-		if(num == 0)
-			num = 1;
+		int mynumcount = 0;
+
+
+		if(num < 2)
+			num = 2;
 
 		k++;
 		usleep(runningtime);
@@ -338,6 +393,7 @@ void *func(void *data)
 		int a = rand()%5;
 
 		int wantwait = 0;
+
 
 
 		for(i = 0; i < total_times; i++) {
@@ -364,69 +420,89 @@ void *func(void *data)
 				usleep(rand()%200);
 			}
 
+#ifdef DEBUG
+			printf("@@@@ op = %d, fucking num = %d\n", op, num);
+#endif
 
-			char *buf = sbuf[op]->buf;
-
-
-		do {
-
-	    		int ret = send(sockfd,buf + offset, len,0);
-				offset += ret;
-	    		len = len - ret;
-
-			}while (len);
 			len = TOTAL_LEN;
-			offset = 0;
+
+			int tail;
+
+//			pthread_mutex_lock(&mtx[op]);
+
+#ifdef DEBUG
+			printf("@@@@@@@@@@@@@ op = %d, tail = %d, head = %d\n", op, sbuf[op]->tail, sbuf[op]->head);
+#endif
+			//tail = sbuf[op]->tail;
+			//tail += len;
+			sbuf[op]->tail += len;
+//			pthread_mutex_unlock(&mtx[op]);
+
+
+			mynumcount+=len;
+#ifdef DEBUG
+			//printf("@@@@@@ now op = %d, total produce num = %d\n", op, mynumcount);
+			printf("@@@@@@ now op = %d, tail = %d\n", op, sbuf[op]->tail);
+#endif
 		}
 
-
+		offset = 0;
 		int rest = num - total_times*TOTAL_LEN;
 		if(rest) {
-			do {
-	    		int ret = send(sockfd,buf + offset, rest,0);
-				offset += ret;
-	    		rest = rest - ret;
-			}while (rest);
+
+#ifdef DEBUG
+			printf("rest@@@@@@@@@@@@@ op = %d, tail = %d, head = %d\n", op, sbuf[op]->tail, sbuf[op]->head);
+#endif
+//			pthread_mutex_lock(&mtx[op]);
+			sbuf[op]->tail += rest;
+//			pthread_mutex_unlock(&mtx[op]);
+
+
+			mynumcount+=rest;
+#ifdef DEBUG
+			//printf("@@@@@@ now op = %d, total produce num = %d\n", op, mynumcount);
+			printf("@@@@@@ now op = %d, tail = %d\n", op, sbuf[op]->tail);
+#endif
+
 		}
+#ifdef DEBUG
+			printf("okok I recv now op = %d, head = %d, tail = %d, num = %d\n", op, sbuf[op]->head, sbuf[op]->tail, num);
+#endif
+		int ret;
+		do {
+			ret = recv(sockfd,receiveMessage,1,0);
+		} while(ret != 1);
+
+		//while(sbuf[op]->head != sbuf[op]->tail) {
+		//	printf("fucking shit!!!!op = %d, port_num = %d, head = %d, tail = %d\n", op, port_num, sbuf[op]->head, sbuf[op]->tail);
+
+		//exit(1);
+		//}
+
+		//if(sbuf[op]->tail - sbuf[op]->head > 65536) {
+		//	printf("fucking shit!!!!op = %d, port_num = %d, head = %d, tail = %d\n", op, port_num, sbuf[op]->head, sbuf[op]->tail);
+		//}
 
 
+//		while(sbuf[op]->head != sbuf[op]->tail) ;
 
+		pthread_mutex_lock(&mtx[op]);
+        sbuf[op]->gonext = 1;
+//		pthread_cond_wait(&cond[op], &mtx[op]);
+//		if(sbuf[op]->head != num)
+//			printf("fucking shit!!!! head = %d, tail = %d\n", sbuf[op]->head, sbuf[op]->tail);
 
+        sbuf[op]->tail = sbuf[op]->head = 0;
+		pthread_mutex_unlock(&mtx[op]);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-		recv(sockfd,receiveMessage,sizeof(receiveMessage),0);
+//		printf("@@@@@@ now op = %d, after recv okokokok head = %d, tail = %d \n", op, sbuf[op]->head, sbuf[op]->tail);
 
 		gettimeofday(&end,NULL);
 		timer = 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
 
-		//if(op%2 == 0)
-		//	printf("%ld\n", num/timer);
 
 
-		fscanf(file2, "%d", &runningtime);
-
-
-		runningtime -= timer;
-		if(runningtime <= 0)
-			runningtime = 1;
-
-
-		if(op%4 == 0) {
+		if(op % TOTAL_VM == 0) {
 	   		FILE *pFile;
    	   		char pbuf[200];
 			pFile = fopen("mytransfer_rate.txt", "a");
@@ -438,7 +514,7 @@ void *func(void *data)
         		printf("no profile\n");
     		fclose(pFile);
 		}
-		else if(op%4 == 1) {
+		else if(op % TOTAL_VM == 1) {
 	   		FILE *pFile;
    	   		char pbuf[200];
 			pFile = fopen("mytransfer_rate2.txt", "a");
@@ -450,7 +526,7 @@ void *func(void *data)
         		printf("no profile\n");
     		fclose(pFile);
 		}
-		else if(op%4 == 2) {
+        else if(op % TOTAL_VM == 2) {
 	   		FILE *pFile;
    	   		char pbuf[200];
 			pFile = fopen("mytransfer_rate3.txt", "a");
@@ -462,7 +538,7 @@ void *func(void *data)
         		printf("no profile\n");
     		fclose(pFile);
 		}
-		else if(op%4 == 3) {
+        else if(op % TOTAL_VM == 3) {
 	   		FILE *pFile;
    	   		char pbuf[200];
 			pFile = fopen("mytransfer_rate4.txt", "a");
@@ -475,18 +551,20 @@ void *func(void *data)
     		fclose(pFile);
 		}
 	}
+/*
+	pthread_mutex_lock(&mtx[op]);
+	sbuf[op]->op_switch = 1;
+	printf("op = %d, send signal to QQQQ op_switch\n", op);
+	pthread_cond_signal(&cond[op]);
+	pthread_mutex_unlock(&mtx[op]);
+*/
 
-//	pthread_cancel(trans_thread);
-//	pthread_join(trans_thread, NULL);
-
-//	pthread_cancel(gthread);
-//	pthread_join(gthread, NULL);
+	pthread_barrier_wait(&barr);
 
     printf("close Socket\n");
 	free(buf);
 	free(sbuf[op]);
 	close(sockfd);
-	close(sockfd2);
 	fclose(file);
 	fclose(file2);
 
@@ -512,7 +590,7 @@ int main(int argc , char *argv[])
 	pthread_mutex_init(&mtx2[1], NULL);
 	pthread_cond_init(&cond2[1], NULL);
 
-
+	pthread_barrier_init(&barr, NULL, 4);
 
 
 	int port_num = atoi(argv[1]);
@@ -539,6 +617,10 @@ int main(int argc , char *argv[])
 	pthread_join(appThread[2], NULL);
 	pthread_join(appThread[3], NULL);
 
+
+
+	pthread_cancel(mythread);
+	pthread_join(mythread, NULL);
 //////////////////////////////
 /*
 	sbuf = malloc(sizeof(struct sendBuf));

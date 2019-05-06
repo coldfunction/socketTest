@@ -21,8 +21,8 @@
 //#define DEBUG 1
 
 
-//#define TOTAL_LEN (64*1024)
-#define TOTAL_LEN (8*1024)
+#define TOTAL_LEN (64*1024)
+//#define TOTAL_LEN (8*1024)
 //#define TOTAL_LEN (512*1024)
 #define TOTAL_DATA_SIZE (8*1024*1024)
 //#define TOTAL_DATA_SIZE (64*1024*1024)
@@ -382,7 +382,9 @@ void *trans_func(void *data)
 		//printf("op = %d, cocotion test time = %ld\n", op, timer);
 
 //		if(timer > 50) {
-		if(timer > 100) {
+//		if(timer > 130 ) { // 4 VMs is ok
+//		if(timer > 150 ) { // 2 VMs is ok
+		if(timer > 180 ) {
 			op = (op+1) % TOTAL_VM;
 			timer = 0;
 		}
@@ -527,7 +529,7 @@ void *func(void *data)
 
 			int tail;
 
-			pthread_mutex_lock(&mtx[op]);
+//			pthread_mutex_lock(&mtx[op]);
 
 #ifdef DEBUG
 			printf("@@@@@@@@@@@@@ op = %d, tail = %d, head = %d\n", op, sbuf[op]->tail, sbuf[op]->head);
@@ -535,7 +537,7 @@ void *func(void *data)
 			//tail = sbuf[op]->tail;
 			//tail += len;
 			sbuf[op]->tail += len;
-			pthread_mutex_unlock(&mtx[op]);
+//			pthread_mutex_unlock(&mtx[op]);
 
 
 			mynumcount+=len;
@@ -552,9 +554,9 @@ void *func(void *data)
 #ifdef DEBUG
 			printf("rest@@@@@@@@@@@@@ op = %d, tail = %d, head = %d\n", op, sbuf[op]->tail, sbuf[op]->head);
 #endif
-			pthread_mutex_lock(&mtx[op]);
+//			pthread_mutex_lock(&mtx[op]);
 			sbuf[op]->tail += rest;
-			pthread_mutex_unlock(&mtx[op]);
+//			pthread_mutex_unlock(&mtx[op]);
 
 
 			mynumcount+=rest;

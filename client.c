@@ -268,6 +268,7 @@ void *trans_func(void *data)
 */
 
 	unsigned long timer = 0;
+	unsigned long oldtimer = 1;
 
 	int op = 0;
 	while(1) {
@@ -387,12 +388,19 @@ void *trans_func(void *data)
 		gettimeofday(&end,NULL);
 		timer += 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
 
-		//printf("op = %d, cocotion test time = %ld\n", op, timer);
+	//	printf("op = %d, cocotion test time = %ld\n", op, timer);
 
-//		if(timer > 50) {
-		if(timer > 133 ) { // 4 VMs is ok
-//		if(timer > 200 ) { // 3 VMs is ok
-//		if(timer > 400 ) { // 2 VMs is ok
+/*		if(timer > oldtimer)
+			oldtimer = timer;
+		printf("op = %d, cocotion test time = %ld\n", op, oldtimer);
+
+		timer = 0;
+*/
+
+
+//		if(timer > 107) { 4 VMs is ok
+//		if(timer > 160 ) { // 3 VMs is ok
+		if(timer > 320 ) { // 2 VMs is ok
 			op = (op+1) % TOTAL_VM;
 			timer = 0;
 		}

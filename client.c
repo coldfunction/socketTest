@@ -22,6 +22,7 @@
 
 
 #define TOTAL_LEN (64*1024)
+#define TOTAL_LEN2 (128*1024)
 //#define TOTAL_LEN (8*1024)
 //#define TOTAL_LEN (512*1024)
 #define TOTAL_DATA_SIZE (8*1024*1024)
@@ -29,6 +30,17 @@
 #define META_HEAD (TOTAL_DATA_SIZE/TOTAL_LEN)
 
 int TOTAL_VM = 4;
+int time_slice = 320;
+long int sum_time_slice = 320;
+long int total_op = 0;
+int local_op = 0;
+
+//int max_op_time = 1000;
+int max_op_time = 1000;
+int expect_sum_op = 0;
+int expect_op = 0;
+
+int current_time = 350;
 
 pthread_t mythread;
 
@@ -76,6 +88,7 @@ struct sendBuf
 
     int gonext;
 
+	int time_slice;
 };
 
 struct sendBuf *sbuf[4];
@@ -271,14 +284,22 @@ void *trans_func(void *data)
 	unsigned long oldtimer = 1;
 
 	int op = 0;
+	struct  timeval  start;
+	struct  timeval  end;
+	gettimeofday(&start,NULL);
+
 	while(1) {
 
 		//op = (op+1) % TOTAL_VM;
+	//struct  timeval  start;
+	//struct  timeval  end;
+	//gettimeofday(&start,NULL);
+
 
 		char *buf  = sbuf[op]->buf;
 		int sockfd = sbuf[op]->sockfd;
 		int head, tail = 0;
-		int len = TOTAL_LEN;
+		int len = TOTAL_LEN2;
 		int bottom = 0;
 /*
 		int inloop = 0;
@@ -318,20 +339,33 @@ void *trans_func(void *data)
 /*
 		if(tail-head == 0) {
 			op = (op+1) % TOTAL_VM;
+//			timer = 0;
+//			usleep(133);
+
+
+			gettimeofday(&end,NULL);
+			unsigned long subtimer = 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
+			timer+=subtimer;
+			if(timer != 0)
+				max_op_time = timer;
 			timer = 0;
-			usleep(133);
 			continue;
 		}
 */
+
+		if(tail-head > 0) local_op++;
+
+
+
 		int offset = 0;
 
-		int num = ((tail-head) >= TOTAL_LEN) ? TOTAL_LEN : (tail-head);
-		int total_times = num/TOTAL_LEN;
+		int num = ((tail-head) >= TOTAL_LEN2) ? TOTAL_LEN2 : (tail-head);
+		int total_times = num/TOTAL_LEN2;
 		int i;
 
-	struct  timeval  start;
-	struct  timeval  end;
-	gettimeofday(&start,NULL);
+	//struct  timeval  start;
+	//struct  timeval  end;
+	//gettimeofday(&start,NULL);
 
 
 
@@ -349,13 +383,13 @@ void *trans_func(void *data)
 	    		len = len - ret;
 			}while (len);
 
-			len = TOTAL_LEN;
+			len = TOTAL_LEN2;
 
 			head += len;
 		}
 
 		offset = 0;
-		int rest = num - total_times*TOTAL_LEN;
+		int rest = num - total_times*TOTAL_LEN2;
         if(rest) {
 			do {
 				int ret = 0;
@@ -386,9 +420,42 @@ void *trans_func(void *data)
 		printf("~~~~op = %d, head= %d, tail = %d\n", op, head, sbuf[op]->tail);
 #endif
 		gettimeofday(&end,NULL);
-		timer += 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
+		timer = 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
+//		unsigned long subtimer = 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
+//		if(subtimer == 0)
+//			subtimer+=1;
 
-	//	printf("op = %d, cocotion test time = %ld\n", op, timer);
+		//timer+=subtimer;
+
+//		if(subtimer > max_op_time)
+//			max_op_time = subtimer;
+//
+/*
+		if(max_op_time == 0) max_op_time = 1;
+		int mynum = max_op_time * subtimer;
+
+		printf("op = %d, cocotion test a = %d, b = %ld\n", op, max_op_time, subtimer);
+
+
+		while(max_op_time > 0 && subtimer > 0) {
+			if(max_op_time > subtimer) {
+				max_op_time = max_op_time % subtimer;
+			}
+			else {
+				subtimer = subtimer % max_op_time;
+			}
+		}
+		if(max_op_time == 0) {
+			max_op_time = mynum/subtimer;
+		}
+		else {
+			max_op_time = mynum/max_op_time;
+		}
+*/
+
+
+//		printf("op = %d, cocotion test subtime = %ld\n", op, subtimer);
+//		printf("op = %d, cocotion test max_op_time = %d\n", op, max_op_time);
 
 /*		if(timer > oldtimer)
 			oldtimer = timer;
@@ -398,12 +465,126 @@ void *trans_func(void *data)
 */
 
 
+//		if(subtimer > max_op_time)
+//			max_op_time = subtimer;
+//		sum_time_slice+=timer;
+		//printf("op = %d, cocotion test timneee = %ld\n", op, timer);
+//		total_op++;
+//		local_op++;
+//		printf("op = %d, cocotion test timneee = %ld\n", op, timer);
+//		expect = (sum_time_slice+timer)/total_op;
+
+//		printf("@@@@ sum_time_slice = %ld, timer = %ld, total_op = %ld, expect = %d\n", sum_time_slice, timer, total_op, expect );
+
+//		expect = 100;
+
 //		if(timer > 107) { 4 VMs is ok
 //		if(timer > 160 ) { // 3 VMs is ok
-		if(timer > 320 ) { // 2 VMs is ok
+//		if(timer > 320 ) { // 2 VMs is ok
+		//max_op_time--;
+//		printf("op = %d, cocotion test expect = %ld\n", op, expect);
+//		if(timer >= max_op_time ) { // 2 VMs is ok
+
+
+/*		if(sbuf[op]->gonext == 1) {
+			sbuf[op]->gonext = 0;
+			//usleep(max_op_time-timer);
 			op = (op+1) % TOTAL_VM;
+			sum_time_slice+=timer;
 			timer = 0;
+			local_op = 0;
+			gettimeofday(&start,NULL);
+
+
+		}*/
+
+		/*
+		if((timer < 10 * expect) && (local_op == 10 )) { // 2 VMs is ok
+			printf("op = %d, cocotion test time = %ld\n", op, timer);
+			usleep(10*expect-timer);
+
+//		if(timer >= sum_time_slice/total_op ) { // 2 VMs is ok
+//			sum_time_slice+=timer;
+//			total_op++;
+//			if(total_op % 500 == 0) {
+//				sum_time_slice = (sum_time_slice/total_op)-5;
+//				if(sum_time_slice < 100) sum_time_slice = 320;
+//				total_op = 1;
+//			}
+//		printf("op = %d, cocotion test max_op_time = %d\n", op, max_op_time);
+	//		max_op_time--;
+//			printf("op = %d, cocotion test time = %ld\n", op, timer);
+
+//			printf("op = %d, time_slice = %ld\n", op, sum_time_slice/total_op);
+			//printf("op = %d, time_slice = %d\n", op, time_slice);
+			op = (op+1) % TOTAL_VM;
+
+			sum_time_slice+=timer;
+			timer = 0;
+			local_op = 0;
+			//time_slice = max_op_time;
+			gettimeofday(&start,NULL);
+
+//			max_op_time = 320;
+		} else */
+
+		/*
+		if(local_op >= 5) {
+		//	printf("cocotion before sleep local_op = %d\n", local_op);
+			if(timer < 1000) {
+				usleep(1000-timer);
+				timer = 1000;
+			}
+
 		}
+*/
+
+
+		if(local_op >= 15) {
+//			if(timer < 1000) {
+			if(timer < max_op_time) {
+				usleep(max_op_time-timer);
+				//printf("cocotion sleep %ld\n", 1000-timer);
+				timer = max_op_time;
+			}
+		}
+
+		if (timer >= max_op_time)  {
+		//	printf("op = %d, cocotion test time = %ld, local_op = %d, expect = %d\n", op, timer, local_op, expect);
+
+		//	printf("cocotion  timer 1000 local_op = %d\n", local_op);
+
+			op = (op+1) % TOTAL_VM;
+
+			sum_time_slice+=timer;
+
+			expect_sum_op+=local_op;
+			total_op++;
+			expect_op = expect_sum_op/total_op;
+//			printf("cocotion  timer 1000 expect_op = %d, local_op = %d\n", expect_op, local_op);
+
+//			expect = sum_time_slice/total_op;
+			timer = 0;
+			local_op = 0;
+			//time_slice = max_op_time;
+			gettimeofday(&start,NULL);
+
+//			current_time++;
+		}
+/*
+		else if(local_op >= 30) {
+			current_time = timer;
+
+//			printf("cocotion timer =  %ld\n", timer);
+			timer = 0;
+			local_op = 0;
+			gettimeofday(&start,NULL);
+
+		}
+*/
+
+
+
 	}
 }
 
@@ -440,6 +621,8 @@ void *func(void *data)
 
 	sbuf[op]->op = op;
 	sbuf[op]->sockfd = sockfd;
+
+	sbuf[op]->time_slice = time_slice;
 
 	printf("cocotion test sockfd = %d\n", sockfd);
 

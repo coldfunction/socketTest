@@ -9,7 +9,7 @@
 #include <pthread.h>
 
 
-#define TOTAL_LEN (128*1024)
+#define TOTAL_LEN (64*1024)
 //#define TOTAL_LEN (8*1024)
 #define TOTAL_DATA_SIZE (8*1024*1024)
 

@@ -579,8 +579,10 @@ void *trans_func(void *data)
 //			max_op_time = 320;
 		} else */
 
-		int k = 2;
-		if(local_op == 4) {
+//0.5, 4
+
+		float k = 0.65;
+		if(local_op == 2) {
 //			printf("cocotion before sleep timer = %ld time_slice  = %d\n", timer, time_slice);
 			if(timer < k*time_slice) {
 				usleep(k*time_slice-timer);

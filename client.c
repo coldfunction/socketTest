@@ -45,6 +45,8 @@ int expect_op = 0;
 
 int current_time = 350;
 
+int current_wait_time = 100;
+
 pthread_t mythread;
 
 static pthread_mutex_t mtx[4];
@@ -96,6 +98,9 @@ struct sendBuf
 	int local_op;
 	struct  timeval  start2;
 	struct  timeval  end2;
+
+	long long lastVirFinish;
+//	int packetsize;
 };
 
 struct sendBuf *sbuf[4];
@@ -276,6 +281,40 @@ void stop_send_garbage(int op)
 	printf("in stop_send_garbage now op = %d after recv and recv %d bytes\n", op, ret);
 }
 
+int selectQueue()
+{
+
+	int i;
+	long long int minVirFinish = 9223372036854775807;
+	int head, tail, qnum = 0;
+
+	for(i = 0; i < TOTAL_VM; i++){
+		pthread_mutex_lock(&mtx[i]);
+
+		head = sbuf[i]->head;
+		tail = sbuf[i]->tail;
+
+		//if(sbuf[i]->gonext) {
+		//	sbuf[i]->local_op = 0;
+		//	sbuf[i]->lastVirFinish = 0;
+		//}
+
+		pthread_mutex_unlock(&mtx[i]);
+
+		if(tail-head == 0) continue;
+
+		if(sbuf[i]->lastVirFinish <  minVirFinish) {
+			minVirFinish = sbuf[i]->lastVirFinish;
+//			printf("cocotion test op = %d, lastVirFinish = %ld, minVirFinish = %ld\n", i, sbuf[i]->lastVirFinish, minVirFinish);
+		}
+		qnum = i;
+	}
+
+	return qnum;
+}
+
+
+
 void *trans_func(void *data)
 {
 /*
@@ -298,6 +337,7 @@ void *trans_func(void *data)
 //	struct  timeval  start2;
 //	struct  timeval  end2;
 
+
 	while(1) {
 
 		//op = (op+1) % TOTAL_VM;
@@ -305,51 +345,84 @@ void *trans_func(void *data)
 	//struct  timeval  end;
 	//gettimeofday(&start,NULL);
 
+//		gettimeofday(&start,NULL);
+//
+
+			gettimeofday(&end,NULL);
+			timer = 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
+/*		int k = 150;
+
+		if(timer >= k || local_op >= 2) {
+			local_op = 0;
+			if(k > timer)
+				usleep(k-timer);
+
+			gettimeofday(&start,NULL);
+			op = selectQueue();
+		}
+*/
+
+/*
+		float k = 0.9;
+		if(local_op == 1) {
+			if(timer < k*time_slice) {
+				usleep(k*time_slice-timer);
+				timer = k*time_slice;
+			}
+		}
+		if(timer > k * time_slice) {
+			local_op = 0;
+			gettimeofday(&start,NULL);
+			op = selectQueue();
+
+		}
+*/
+		op = selectQueue();
+
+
 
 		char *buf  = sbuf[op]->buf;
 		int sockfd = sbuf[op]->sockfd;
 		int head, tail = 0;
 		int len = TOTAL_LEN2;
 		int bottom = 0;
-/*
-		int inloop = 0;
 
-		pthread_mutex_lock(&mtx[op]);
-		while (sbuf[op]->head == sbuf[op]->tail) {
-#ifdef DEBUG
-			printf("wait op = %d, head = %d, tail = %d\n", op, sbuf[op]->head, sbuf[op]->tail);
-#endif
-			inloop++;
-			printf("op = %d, inloop = %d\n", op, inloop);
-			printf("wait op = %d, head = %d, tail = %d\n", op, sbuf[op]->head, sbuf[op]->tail);
 
-//		    pthread_cond_signal(&cond[op]);
-			pthread_mutex_unlock(&mtx[op]);
-
-			op = (op+1) % TOTAL_VM;
-			sockfd = sbuf[op]->sockfd;
-			buf  = sbuf[op]->buf;
-			//usleep(5);
-			pthread_mutex_lock(&mtx[op]);
-		}
-
-		inloop = 0;
-*/
 		pthread_mutex_lock(&mtx[op]);
 
 		head = sbuf[op]->head;
 		tail = sbuf[op]->tail;
 
-		if(sbuf[op]->gonext) {
-			sbuf[op]->local_op = 0;
+//		if(sbuf[op]->gonext) {
+//			sbuf[op]->local_op = 0;
+//			sbuf[op]->lastVirFinish = 0;
+//		}
+		sbuf[op]->gonext = 0;
+		pthread_mutex_unlock(&mtx[op]);
+
+//		printf("cocotion test ok I got op = %d, tail - head = %d\n", op, tail-head);
+
+		if(tail - head == 0) {
+//			if(op == 0)	usleep(500);
+//			if(op == 0) usleep(current_wait_time);
+		//	usleep(800)	;
+			continue;
+		}
+
+		gettimeofday(&end,NULL);
+		timer = 1000000 * (end.tv_sec-sbuf[op]->start2.tv_sec)+ end.tv_usec-sbuf[op]->start2.tv_usec;
+
+
+
+		if(timer > 0 && timer < 1000) {
+			total_op++;
+			sum_time_slice += timer;
+			time_slice = sum_time_slice/total_op;
 		}
 
 
-		sbuf[op]->gonext = 0;
 
-		//int update_head = 0;
-
-		pthread_mutex_unlock(&mtx[op]);
+		local_op++;
 
 /*
 		if(tail-head == 0) {
@@ -367,7 +440,7 @@ void *trans_func(void *data)
 			continue;
 		}
 */
-
+/*
 		if(tail-head > 0) {
 		//	total_op++;
 			//
@@ -401,6 +474,9 @@ void *trans_func(void *data)
 
 //			printf("waittimer  = %ld, sum_time_slice =%ld, total_op = %ld, local_op = %d, time_slice = %d\n", waittimer, sum_time_slice, total_op, sbuf[op]->local_op, time_slice);
 		}
+*/
+
+
 		//else {
 
 
@@ -413,6 +489,7 @@ void *trans_func(void *data)
 		int total_times = num/TOTAL_LEN2;
 		int i;
 
+		int packetsize = 0;
 	//struct  timeval  start;
 	//struct  timeval  end;
 	//gettimeofday(&start,NULL);
@@ -436,6 +513,7 @@ void *trans_func(void *data)
 			len = TOTAL_LEN2;
 
 			head += len;
+			packetsize += len;
 		}
 
 		offset = 0;
@@ -454,6 +532,7 @@ void *trans_func(void *data)
 	    		rest = rest - ret;
 			}while (rest);
 			head = head + offset;
+			packetsize += offset;
 		}
 
 
@@ -469,8 +548,43 @@ void *trans_func(void *data)
 #ifdef DEBUG
 		printf("~~~~op = %d, head= %d, tail = %d\n", op, head, sbuf[op]->tail);
 #endif
-		gettimeofday(&end,NULL);
-		timer = 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
+
+//		usleep(packetsize/1024);
+
+
+	//	gettimeofday(&end,NULL);
+		//timer = 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
+	//	timer = 1000000 * (end.tv_sec-sbuf[op]->start2.tv_sec)+ end.tv_usec-sbuf[op]->start2.tv_usec;
+
+//		gettimeofday(&sbuf[op]->start2, NULL);
+
+		long long virStart;
+		/*if( timer > sbuf[op]->lastVirFinish ) {
+			virStart = timer;
+		}
+		else {
+			virStart = sbuf[op]->lastVirFinish;
+		}*/
+		virStart = -timer;
+		sbuf[op]->lastVirFinish = virStart + 10*packetsize;
+
+		gettimeofday(&sbuf[op]->start2, NULL);
+
+
+//		total_op++;
+//		sum_time_slice+=timer;
+
+//		current_wait_time = sum_time_slice/total_op;
+
+
+		//		printf("current_wait_time = %d\n", current_wait_time);
+	//	if(125 > current_wait_time)
+	//		usleep(125-current_wait_time);
+//		if(125 > timer)
+//			usleep(125-timer);
+
+
+
 //		printf("op = %d, cocotion test time = %ld\n", op, timer);
 //		unsigned long subtimer = 1000000 * (end.tv_sec-start.tv_sec)+ end.tv_usec-start.tv_usec;
 //		if(subtimer == 0)
@@ -581,6 +695,8 @@ void *trans_func(void *data)
 
 //0.5, 4
 
+/*
+
 //		float k = 0.9; //current 4 VMs good
 		float k = 0.896; //
 		if(local_op == 3) {
@@ -615,6 +731,10 @@ void *trans_func(void *data)
 
 //			current_time++;
 		}
+
+*/
+
+
 /*
 		else if(local_op >= 30) {
 			current_time = timer;
@@ -671,6 +791,12 @@ void *func(void *data)
 
 	sbuf[op]->local_op = 0;
 
+
+	sbuf[op]->lastVirFinish = 0;
+
+//	gettimeofday(&sbuf[op]->start2, NULL);
+
+
 	printf("cocotion test sockfd = %d\n", sockfd);
 
     //Send a message to server
@@ -723,6 +849,7 @@ void *func(void *data)
 	int k = 0;
 	while (fscanf(file, "%d", &num)!=EOF) {
 
+
 		int mynumcount = 0;
 
 
@@ -732,7 +859,10 @@ void *func(void *data)
 		k++;
 		usleep(runningtime);
 
+		current_wait_time = runningtime;
+
 		gettimeofday(&start,NULL);
+		gettimeofday(&sbuf[op]->start2, NULL);
 
 		int total_times = num/TOTAL_LEN;
 
@@ -841,6 +971,8 @@ void *func(void *data)
 
         sbuf[op]->tail = sbuf[op]->head = 0;
 		pthread_mutex_unlock(&mtx[op]);
+
+		sbuf[op]->lastVirFinish = 0;
 
 //		printf("@@@@@@ now op = %d, after recv okokokok head = %d, tail = %d \n", op, sbuf[op]->head, sbuf[op]->tail);
 
